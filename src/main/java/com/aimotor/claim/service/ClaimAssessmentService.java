@@ -106,6 +106,7 @@ public class ClaimAssessmentService {
             return saveRejected(assessment, "REJECTED", List.of(identity.getReason()), List.of());
         }
         identity.setReason("Khop bien so, SDT va loai xe voi ho so goc. Mau goc: " + vehicle.getColor() + ".");
+        assessment.setOwnerName(vehicle.getOwnerName());
         auditService.log("ASSESSMENT", plate, phone, vehicleType,
                 true, true, true, true, identity.getReason(), assessment.getClaimId());
 

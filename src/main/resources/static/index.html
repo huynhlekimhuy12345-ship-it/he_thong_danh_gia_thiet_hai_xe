@@ -472,7 +472,7 @@ function renderResult(r){
   let bannerCls = 'ok', bannerTitle = '✅ Ảnh hợp lệ — AI đã thẩm định xong.';
   if(v === 'NEEDS_MORE_INFO'){ bannerCls='warn'; bannerTitle='⚠️ Cần bổ sung thêm ảnh / thông tin.'; }
   if(v === 'REJECTED'){ bannerCls='bad'; bannerTitle='⛔ Hồ sơ bị từ chối.'; }
-  let html = '<div class="card"><div class="banner '+bannerCls+'"><b>'+bannerTitle+'</b><br><span class="muted">Mã hồ sơ: '+r.claimId+' · Biển số: '+maskPlate(r.licensePlate)+'</span>';
+  let html = '<div class="card"><div class="banner '+bannerCls+'"><b>'+bannerTitle+'</b><br><span class="muted">Mã hồ sơ: '+r.claimId+' · Chủ xe: '+(r.ownerName||'—')+' · Biển số: '+maskPlate(r.licensePlate)+'</span>';
   if(r.validationIssues && r.validationIssues.length){
     html += '<ul>' + r.validationIssues.map(i=>'<li>'+i+'</li>').join('') + '</ul>';
   }
@@ -522,8 +522,8 @@ async function loadHistory(){
     const list = await api('/api/assessments');
     const box = $('#history');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có hồ sơ nào.</span>'; return; }
-    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th></tr></thead><tbody>'
-      + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
+    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Chủ xe</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th></tr></thead><tbody>'
+      + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
         + '</td><td class="money">'+fmt((r.netCompensationVnd!=null&&r.netCompensationVnd!==undefined)?r.netCompensationVnd:(r.totalCompensationVnd||0))+'</td><td>'
         + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra</span>':'<span class="muted">Không cần</span>')+'</td></tr>').join('')
@@ -540,8 +540,8 @@ $('#btnLookup').addEventListener('click', async ()=>{
   try{
     const list = await api('/api/assessments/lookup?licensePlate='+encodeURIComponent(plate)+'&customerPhone='+encodeURIComponent(phone)+'&vehicleType='+encodeURIComponent(vtype));
     if(!list.length){ box.innerHTML = '<span class="muted">Xe này chưa có hồ sơ bồi thường nào.</span>'; return; }
-    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Biển số</th><th>Trạng thái</th><th>Tổng thiệt hại</th><th>Miễn thường</th><th>Bồi thường thực nhận</th><th>Giám định viên</th><th>Ngày gửi</th></tr></thead><tbody>'
-      + list.map(r=>'<tr><td>'+r.claimId+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
+    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Chủ xe</th><th>Biển số</th><th>Trạng thái</th><th>Tổng thiệt hại</th><th>Miễn thường</th><th>Bồi thường thực nhận</th><th>Giám định viên</th><th>Ngày gửi</th></tr></thead><tbody>'
+      + list.map(r=>'<tr><td>'+r.claimId+'</td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
         + '</td><td class="money">'+fmt(r.totalCompensationVnd||0)+'</td><td class="money">'+fmt(r.deductibleVnd||0)+'</td><td class="money">'+fmt(r.netCompensationVnd||0)+'</td><td>'
         + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra'+(r.humanReviewReason?' — '+r.humanReviewReason:'')+'</span>':'<span class="muted">Không cần</span>')

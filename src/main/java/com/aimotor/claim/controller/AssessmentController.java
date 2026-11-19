@@ -80,12 +80,12 @@ public class AssessmentController {
     }
 
     /** 1 ho so trong ket qua tra cuu: chi neu tinh trang boi thuong, bien so da che, khong co SDT. */
-    public record ClaimStatusDto(String claimId, String licensePlate, String validationStatus,
+    public record ClaimStatusDto(String claimId, String ownerName, String licensePlate, String validationStatus,
                                  long totalCompensationVnd, long deductibleVnd, long netCompensationVnd,
                                  boolean requiresHumanReview, String humanReviewReason,
                                  String assessmentSummary, Instant createdAt) {
         static ClaimStatusDto from(ClaimAssessment a) {
-            return new ClaimStatusDto(a.getClaimId(), VehicleService.maskPlate(a.getLicensePlate()),
+            return new ClaimStatusDto(a.getClaimId(), a.getOwnerName(), VehicleService.maskPlate(a.getLicensePlate()),
                     a.getValidationStatus(), a.getTotalCompensationVnd(), a.getDeductibleVnd(),
                     a.getNetCompensationVnd(), a.isRequiresHumanReview(), a.getHumanReviewReason(),
                     a.getAssessmentSummary(), a.getCreatedAt());

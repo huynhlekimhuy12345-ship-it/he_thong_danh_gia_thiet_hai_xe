@@ -21,6 +21,9 @@ public class ClaimAssessment {
     private String customerPhone;
     private String vehicleId;
 
+    /** Ten chu xe (copy tu ho so xe goc khi xac minh danh tinh xong, de hien tren ho so) */
+    private String ownerName;
+
     /** OK | NEEDS_MORE_INFO | REJECTED */
     private String validationStatus;
 
@@ -111,6 +114,8 @@ public class ClaimAssessment {
     public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
     public String getVehicleId() { return vehicleId; }
     public void setVehicleId(String vehicleId) { this.vehicleId = vehicleId; }
+    public String getOwnerName() { return ownerName; }
+    public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
     public String getValidationStatus() { return validationStatus; }
     public void setValidationStatus(String validationStatus) { this.validationStatus = validationStatus; }
     public List<String> getValidationIssues() { return validationIssues; }
