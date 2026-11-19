@@ -33,6 +33,7 @@ public class GeminiService {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final AppConfigService appConfigService;
+    private final PriceTableService priceTableService;
 
     @Value("${gemini.api.key:}")
     private String apiKeyProperty;
@@ -43,9 +44,11 @@ public class GeminiService {
     @Value("${gemini.api.base-url:https://generativelanguage.googleapis.com/v1beta/models}")
     private String apiBaseUrl;
 
-    public GeminiService(ObjectMapper objectMapper, AppConfigService appConfigService) {
+    public GeminiService(ObjectMapper objectMapper, AppConfigService appConfigService,
+                         PriceTableService priceTableService) {
         this.objectMapper = objectMapper;
         this.appConfigService = appConfigService;
+        this.priceTableService = priceTableService;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(60_000);
         factory.setReadTimeout(180_000);
@@ -164,17 +167,21 @@ public class GeminiService {
         String model = resolveModel();
 
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("system_instruction", Map.of("parts", List.of(Map.of("text",
-                "Ban la chuyen gia dinh gia sua chua xe. Cho 1 ANH MOI (chua co gia) va KHO ANH MAU CU da co gia chuan, "
-                        + "hay tim anh mau giong nhat ve bo phan + loai hu hai + muc do. Tra loi HOAN TOAN bang tieng Viet, "
-                        + "chi theo dung JSON schema da cho. Neu khong co anh mau nao tuong duong (khac bo phan hoac khac loai hu hai), "
-                        + "tra matchedReferenceId = \"\", suggestedPriceVnd = 0, confidenceScore = 0 va giai thich ly do. "
-                        + "KHONG duoc doan gia khi khong co mau tuong duong. confidenceScore: 0.0-1.0."))));
+        String suggestInstruction = "Ban la chuyen gia dinh gia sua chua xe. Cho 1 ANH MOI (chua co gia) va KHO ANH MAU CU da co gia chuan, "
+                + "hay tim anh mau giong nhat ve bo phan + loai hu hai + muc do. Tra loi HOAN TOAN bang tieng Viet, "
+                + "chi theo dung JSON schema da cho.\n"
+                + "BANG GIA THAM CHIEU (can cu dinh gia, xe pho thong, khong theo hang/model xe):\n"
+                + priceTableService.formatForPrompt()
+                + "Cach dinh gia: tim anh mau giong nhat de xac dinh bo phan + muc do, roi lay gia tu BANG GIA tren (muc hop li nhat trong khoang cua bo phan + muc do do). "
+                + "Gia cua anh mau cu chi dung de doi chieu do lon, KHONG lay truc tiep. "
+                + "Neu khong xac dinh duoc bo phan/muc do (anh mo, khong phai o to, khac hoan toan kho mau) thi tra matchedReferenceId = \"\", "
+                + "suggestedPriceVnd = 0, confidenceScore = 0 va giai thich ly do. KHONG duoc doan gia khi khong co can cu. confidenceScore: 0.0-1.0.";
+        body.put("system_instruction", Map.of("parts", List.of(Map.of("text", suggestInstruction))));
         List<Map<String, Object>> parts = new ArrayList<>();
         parts.add(Map.of("text", "KHO ANH MAU CU (da co gia chuan):"));
         for (ReferencePayload ref : references) {
             ReferenceDamage r = ref.reference();
-            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia chuan %,d VND] Mo ta: %s",
+            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia tham chieu %,d VND] Mo ta: %s",
                     r.getReferenceId(), r.getPartName(), r.getSeverityLevel(),
                     r.getSeverityLabel(), r.getStandardPriceVnd(), r.getDescription());
             parts.add(Map.of("text", label));
@@ -261,7 +268,7 @@ public class GeminiService {
 
         for (ReferencePayload ref : references) {
             ReferenceDamage r = ref.reference();
-            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia chuan %,d VND] Mo ta: %s",
+            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia tham chieu %,d VND] Mo ta: %s",
                     r.getReferenceId(), r.getPartName(), r.getSeverityLevel(),
                     r.getSeverityLabel(), r.getStandardPriceVnd(), r.getDescription());
             parts.add(Map.of("text", label));
@@ -318,10 +325,17 @@ public class GeminiService {
                 + "dat requiresHumanReview = true va ghi ro humanReviewReason de giam dinh vien kiem tra truc tiep.\n");
         sb.append("4) confidenceScore: 0.0-1.0 theo do ro rang cua vet tren anh. Vet mo hoac chi thay lo mo thi ha diem manh tay.\n");
         sb.append("5) totalCompensationVnd = tong estimatedCostVnd cua cac vet (sau khi da gop trung lap).\n");
-        sb.append("6) GIA THAM CHIEU THI TRUONG (MoMo, bao hiem than vo): va quet nho khoang 2-3 trieu dong, va cham nang 30-80 trieu dong, "
-                + "thuy kich 20-60 trieu dong. Neu uoc luong vuot xa khoang nay thi giai thich ro trong referenceComparisonNote "
-                + "va dat requiresHumanReview = true. He thong se tu tru muc mien thuong sau khi nhan ket qua, "
-                + "Gemini chi can bao gia tong thiet hai goc.\n");
+        sb.append("6) DINH GIA THEO BANG GIA THAM CHIEU (QUAN TRONG NHAT - doc ky tung dong):\n");
+        sb.append(priceTableService.formatForPrompt());
+        sb.append("   a) Anh mau REF_xx chi dung de NHAN DIEN bo phan + muc do (so sanh hinh anh). Gia ghi tren moi anh mau la gia tham chieu cua case do, "
+                + "co the la TONG TIEN CA VU cua case MoMo - KHONG duoc lay so do lam estimatedCostVnd cua 1 vet.\n");
+        sb.append("   b) Voi moi vet: xac dinh bo phan + muc do -> tra BANG GIA tren -> chon MUC GIA HOP LI NHAT trong khoang: gan min neu hu hai nhe trong muc do, "
+                + "giua khoang neu trung binh, gan max neu nang. Ghi ro cach chon trong referenceComparisonNote.\n");
+        sb.append("   c) Gia KHONG phu thuoc hang/model xe: cung bo phan + cung muc do thi cung gia bang, du la Seltos hay Everest. "
+                + "Xe sang/nhap khau, den LED/laser/adaptive, cam bien ADAS, khung suon bien dang nang: neu vuot bang thi giai thich ro va dat requiresHumanReview = true, KHONG tu nhan he so.\n");
+        sb.append("   d) Neu bo phan khong co trong bang: uoc luong theo muc tuong duong gan nhat, ghi ro trong referenceComparisonNote va dat requiresHumanReview = true.\n");
+        sb.append("   e) Kiem tra tong: so totalCompensationVnd voi moc kiem tra tong trong bang. Vuot xa moc thi giai thich ro va dat requiresHumanReview = true. "
+                + "He thong se tu tru muc mien thuong sau khi nhan ket qua, Gemini chi can bao gia tong thiet hai goc.\n");
         return sb.toString();
     }
 

@@ -192,6 +192,40 @@ số bồi thường thực nhận đề xuất. Xem mục Mức giá tham chi�
 
 Nguồn: https://www.momo.vn/bao-hiem-o-to/than-vo (truy cập 19/11/2026).
 
+## Bảng giá tham chiếu — AI định giá theo bộ phận × mức độ, KHÔNG theo loại xe
+
+Giá bồi thường **không phụ thuộc hãng/model xe**: cùng bộ phận + cùng mức độ thì
+cùng một giá, dù là Seltos hay Everest. Căn cứ định giá duy nhất của AI là
+**`src/main/resources/price-table.json`** — bảng giá tổng hợp từ **12 nguồn uy
+tín** (MoMo, GTX Auto Care, Hoàng Gia Phát, Thiên Minh, Gia Đình Auto, Ô tô Mỹ
+Đình THC, GoGara, Thành Nam Auto, 1CAR Gara, Cao Sang Auto, VietnamNet, Phúc
+Việt Auto), gồm **30 mức giá cho 11 bộ phận** (cản, cửa, capo, cốp/đuôi xe, tai
+xe, đèn pha, đèn hậu, kính chắn gió, gương, khung sườn, động cơ thủy kích) × 3
+mức độ (sơn dặm / gò sơn / thay mới), kèm 4 mốc kiểm tra tổng (va quẹt nhỏ
+2–3tr, va chạm nặng 30–80tr, thủy kích 20–60tr, sơn toàn xe 12–35tr). Mỗi mức
+ghi rõ độ tin cậy (`cao` = nhiều nguồn khớp nhau, `trung bình` = ước tính theo
+mặt bằng chung, cần thẩm định viên xác nhận).
+
+Cách AI dùng bảng này (đã cấu hình trong System Prompt của `GeminiService`,
+mục 6 — đọc kỹ trước khi sửa):
+
+1. **Ảnh mẫu REF_xx chỉ để nhận diện** bộ phận + mức độ (so sánh hình ảnh).
+   Giá ghi trên ảnh mẫu là **tổng tiền cả vụ** của case MoMo, KHÔNG được lấy
+   làm giá của 1 vết.
+2. Mỗi vết: xác định bộ phận + mức độ → tra bảng → chọn **mức giá hợp lí
+   nhất trong khoảng** (gần min nếu nhẹ, giữa khoảng nếu trung bình, gần max
+   nếu nặng), ghi rõ cách chọn trong `referenceComparisonNote`.
+3. **Không nhân hệ số theo xe**: xe sang/nhập khẩu, đèn LED/laser/adaptive,
+   cảm biến ADAS, khung biến dạng nặng mà vượt bảng thì giải thích và đặt
+   `requiresHumanReview = true`, không tự bịa hệ số.
+4. Tính năng **Gợi ý giá** (ảnh mẫu mới) cũng dùng bảng này: ảnh mẫu cũ chỉ để
+   xác định bộ phận + mức độ, giá lấy từ bảng.
+
+Muốn cập nhật giá: sửa `price-table.json` rồi khởi động lại app là có hiệu lực
+(`PriceTableService` nạp file lúc chạy; nếu file lỗi thì tự dùng bảng rút gọn
+để hệ thống vẫn chạy). `README` này liệt kê đầy đủ 12 nguồn + URL trong file
+JSON (mục `sources`).
+
 ### 14 case thực tế đã đưa vào kho ảnh mẫu (REF_05–REF_18, 42 ảnh)
 
 Trang MoMo có mục **"Một số trường hợp thực tế"** — mỗi case gồm **3 ảnh** thiệt hại
