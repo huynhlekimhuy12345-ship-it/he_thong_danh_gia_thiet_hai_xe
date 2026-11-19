@@ -81,6 +81,7 @@ public class VehicleService {
         CustomerVehicle c = new CustomerVehicle();
         c.setId(v.getId());
         c.setOwnerName(v.getOwnerName());
+        c.setOwnerDateOfBirth(v.getOwnerDateOfBirth());
         c.setLicensePlate(maskPlate(v.getLicensePlate()));
         c.setCustomerPhone(maskPhone(v.getCustomerPhone()));
         c.setVehicleType(v.getVehicleType());
@@ -93,14 +94,19 @@ public class VehicleService {
         return c;
     }
 
-    public CustomerVehicle register(String ownerName, String licensePlate, String customerPhone, String vehicleType,
+    public CustomerVehicle register(String ownerName, java.time.LocalDate ownerDateOfBirth,
+                                    String licensePlate, String customerPhone, String vehicleType,
                                     String brand, String model, int year, String color,
                                     MultipartFile[] baselinePhotos) throws IOException {
         String plate = normalizePlate(licensePlate);
         String phone = normalizePhone(customerPhone);
-        if (ownerName == null || ownerName.isBlank() || plate.isBlank() || phone.isBlank()
+        if (ownerName == null || ownerName.isBlank() || ownerDateOfBirth == null
+                || plate.isBlank() || phone.isBlank()
                 || vehicleType == null || vehicleType.isBlank()) {
-            throw new IllegalArgumentException("Thieu ten chu xe, bien so, SDT hoac loai xe.");
+            throw new IllegalArgumentException("Thieu ten chu xe, ngay sinh, bien so, SDT hoac loai xe.");
+        }
+        if (ownerDateOfBirth.isAfter(java.time.LocalDate.now())) {
+            throw new IllegalArgumentException("Ngay sinh khong duoc lon hon ngay hien tai.");
         }
         if (repository.existsByLicensePlate(plate)) {
             throw new IllegalArgumentException("Bien so " + plate + " da co ho so xe. Dung chuc nang cap nhat hoac dung bien so khac.");
@@ -116,6 +122,7 @@ public class VehicleService {
         }
         CustomerVehicle vehicle = new CustomerVehicle();
         vehicle.setOwnerName(ownerName.trim());
+        vehicle.setOwnerDateOfBirth(ownerDateOfBirth);
         vehicle.setLicensePlate(plate);
         vehicle.setCustomerPhone(phone);
         vehicle.setVehicleType(vehicleType.trim());

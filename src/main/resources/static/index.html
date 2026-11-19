@@ -191,6 +191,7 @@
       <p class="hint">Bước đầu tiên khi mua bảo hiểm: ghi đầy đủ thông tin chủ xe + xe, và chụp ảnh toàn bộ xe lúc còn nguyên vẹn (ảnh gốc). Sau này xe bị hư hại, AI sẽ đối chiếu ảnh mới với ảnh gốc này để loại vết cũ và xác minh đúng xe.</p>
       <div class="grid2">
         <div><label>Tên chủ xe *</label><input id="v-owner" placeholder="VD: Nguyễn Văn A"></div>
+        <div><label>Ngày sinh chủ xe *</label><input id="v-dob" type="date"></div>
         <div><label>Biển số xe *</label><input id="v-plate" placeholder="VD: 51H-12345"></div>
         <div><label>Số điện thoại *</label><input id="v-phone" placeholder="VD: 0901234567"></div>
         <div><label>Loại xe *</label>
@@ -321,6 +322,13 @@ function maskPlate(p){
   if(s.length <= 5) return s[0] + '*'.repeat(s.length-2) + s[s.length-1];
   return s.slice(0,3) + '*'.repeat(s.length-5) + s.slice(-2);
 }
+// Ngay sinh dang yyyy-MM-dd (hoac ISO datetime) -> dd/MM/yyyy, tranh loi mui gio.
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = String(iso).slice(0,10).split('-');
+  if(d.length !== 3) return String(iso);
+  return d[2] + '/' + d[1] + '/' + d[0];
+}
 function maskPhone(p){
   const s = String(p||'').replace(/[^0-9]/g,'');
   if(!s) return '';
@@ -412,7 +420,7 @@ $('#btnFindVehicle').addEventListener('click', async ()=>{
   try{
     const v = await api('/api/vehicles/confirm?licensePlate='+encodeURIComponent(plate)+'&customerPhone='+encodeURIComponent(phone)+'&vehicleType='+encodeURIComponent(vtype));
     let html = '<div class="card" style="margin:0"><div class="banner ok"><b>✅ Tìm thấy xe của bạn — hãy xác nhận đúng xe trước khi chụp ảnh hư hại.</b></div>'
-      + '<p style="margin:12px 0 4px"><b>'+(v.ownerName||'—')+'</b> · Biển số: <b>'+maskPlate(v.licensePlate)+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
+      + '<p style="margin:12px 0 4px"><b>'+(v.ownerName||'—')+'</b> (sinh: '+(v.ownerDateOfBirth||'—')+') · Biển số: <b>'+maskPlate(v.licensePlate)+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
       + '<br>Màu: '+v.color+' · SĐT: '+maskPhone(v.customerPhone)+' · Đăng ký ngày: '+(v.registeredAt?new Date(v.registeredAt).toLocaleDateString('vi-VN'):'—')+'</p>';
     if(v.baselinePhotoUrls && v.baselinePhotoUrls.length){
       html += '<p class="hint">Ảnh gốc lúc mua bảo hiểm ('+v.baselinePhotoUrls.length+' ảnh):</p><div class="thumbs">'
@@ -556,6 +564,7 @@ $('#btnLookup').addEventListener('click', async ()=>{
 $('#btnRegister').addEventListener('click', async ()=>{
   const fd = new FormData();
   fd.append('ownerName', $('#v-owner').value.trim());
+  fd.append('ownerDateOfBirth', $('#v-dob').value);
   fd.append('licensePlate', $('#v-plate').value.trim());
   fd.append('customerPhone', $('#v-phone').value.trim());
   fd.append('vehicleType', $('#v-type').value);
@@ -574,7 +583,7 @@ async function loadVehicles(){
     const list = await api('/api/vehicles');
     const box = $('#vehicleList');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có xe nào.</span>'; return; }
-    box.innerHTML = list.map(v=>'<div class="veh" style="padding:10px 0;border-bottom:1px solid var(--card-border)"><b>'+(v.ownerName||'—')+'</b> · <b>'+maskPlate(v.licensePlate)+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
+    box.innerHTML = list.map(v=>'<div class="veh" style="padding:10px 0;border-bottom:1px solid var(--card-border)"><b>'+(v.ownerName||'—')+'</b> (sinh: '+fmtDate(v.ownerDateOfBirth)+') · <b>'+maskPlate(v.licensePlate)+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
       +' · Màu: '+v.color+' · SĐT: '+maskPhone(v.customerPhone)+' · Ảnh gốc: '+(v.baselinePhotoPaths||[]).length+' ảnh</div>').join('');
   }catch(e){ $('#vehicleList').innerHTML = '<span class="muted">Không tải được: '+e.message+'</span>'; }
 }

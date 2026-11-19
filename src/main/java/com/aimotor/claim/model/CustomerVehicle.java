@@ -4,6 +4,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +21,9 @@ public class CustomerVehicle {
 
     /** Ten chu xe (ghi day du khi mua bao hiem) */
     private String ownerName;
+
+    /** Ngay sinh chu xe (ghi ro khi mua bao hiem, dang yyyy-MM-dd) */
+    private LocalDate ownerDateOfBirth;
 
     /** Bien so da chuan hoa: viet hoa, bo khoang trang / dau gach / dau cham */
     private String licensePlate;
@@ -47,6 +51,8 @@ public class CustomerVehicle {
 
     public String getOwnerName() { return ownerName; }
     public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
+    public LocalDate getOwnerDateOfBirth() { return ownerDateOfBirth; }
+    public void setOwnerDateOfBirth(LocalDate ownerDateOfBirth) { this.ownerDateOfBirth = ownerDateOfBirth; }
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getLicensePlate() { return licensePlate; }

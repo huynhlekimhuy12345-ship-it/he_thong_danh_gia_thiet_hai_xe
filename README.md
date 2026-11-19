@@ -7,7 +7,7 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
 
 ```
 1. Mua bảo hiểm — đăng ký hồ sơ xe gốc (tab Mua bảo hiểm)
-   Ghi đầy đủ: tên chủ xe + biển số + SĐT + loại xe + hãng/dòng/năm + màu xe
+   Ghi đầy đủ: tên chủ xe + ngày sinh chủ xe + biển số + SĐT + loại xe + hãng/dòng/năm + màu xe
    + chụp ảnh toàn bộ xe lúc còn nguyên vẹn (4 góc + biển số/VIN + cốp)
         ↓
 2. Xe bị thiệt hại → nhập biển số + SĐT + loại xe đã đăng ký (tab Thẩm định)

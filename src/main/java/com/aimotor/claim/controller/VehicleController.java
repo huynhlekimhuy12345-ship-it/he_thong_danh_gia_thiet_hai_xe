@@ -5,6 +5,7 @@ import com.aimotor.claim.service.VehicleService;
 import com.aimotor.claim.service.VerificationAuditService;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -87,6 +88,8 @@ public class VehicleController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CustomerVehicle> register(
             @RequestParam("ownerName") String ownerName,
+            @RequestParam(value = "ownerDateOfBirth", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate ownerDateOfBirth,
             @RequestParam("licensePlate") String licensePlate,
             @RequestParam("customerPhone") String customerPhone,
             @RequestParam("vehicleType") String vehicleType,
@@ -95,13 +98,14 @@ public class VehicleController {
             @RequestParam(value = "year", required = false, defaultValue = "0") int year,
             @RequestParam(value = "color", required = false) String color,
             @RequestParam(value = "baselinePhotos", required = false) MultipartFile[] baselinePhotos) throws Exception {
-        CustomerVehicle saved = service.register(ownerName, licensePlate, customerPhone, vehicleType,
+        CustomerVehicle saved = service.register(ownerName, ownerDateOfBirth, licensePlate, customerPhone, vehicleType,
                 brand, model, year, color, baselinePhotos);
         return ResponseEntity.status(HttpStatus.CREATED).body(VehicleService.maskedCopy(saved));
     }
 
     /** Xe goc tra ve cho buoc xac nhan: bien so + SDT da che, kem link anh goc. */
-    public record VehicleConfirmDto(String vehicleId, String ownerName, String licensePlate,
+    public record VehicleConfirmDto(String vehicleId, String ownerName, String ownerDateOfBirth,
+                                    String licensePlate,
                                     String customerPhone, String vehicleType, String brand, String model,
                                     int year, String color, List<String> baselinePhotoUrls,
                                     String registeredAt) {
@@ -112,6 +116,8 @@ public class VehicleController {
                 urls.add("/api/vehicles/photo/" + v.getId() + "/" + i);
             }
             return new VehicleConfirmDto(v.getId(), v.getOwnerName(),
+                    v.getOwnerDateOfBirth() == null ? null
+                            : v.getOwnerDateOfBirth().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     VehicleService.maskPlate(v.getLicensePlate()),
                     VehicleService.maskPhone(v.getCustomerPhone()),
                     v.getVehicleType(), v.getBrand(), v.getModel(), v.getYear(), v.getColor(),
