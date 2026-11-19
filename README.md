@@ -117,8 +117,8 @@ với nội dung:
 ```
 
 Lúc quét, ảnh có file metadata hợp lệ (đủ `partName` + `standardPriceVnd > 0`)
-sẽ vào thẳng kho chính thức, không cần bổ sung tay. 14 case MoMo (REF_05–REF_18)
-đã kèm sẵn file `.json` theo cách này.
+sẽ vào thẳng kho chính thức, không cần bổ sung tay. 14 case MoMo (REF_05–REF_18,
+42 ảnh) đã kèm sẵn file `.json` theo cách này.
 
 ## API chính
 
@@ -192,12 +192,15 @@ số bồi thường thực nhận đề xuất. Xem mục Mức giá tham chi�
 
 Nguồn: https://www.momo.vn/bao-hiem-o-to/than-vo (truy cập 19/11/2026).
 
-### 14 case thực tế đã đưa vào kho ảnh mẫu (REF_05–REF_18)
+### 14 case thực tế đã đưa vào kho ảnh mẫu (REF_05–REF_18, 42 ảnh)
 
-Trang MoMo có mục **"Một số trường hợp thực tế"** — mỗi case gồm ảnh thiệt hại
-thật + phí bảo hiểm + phí bồi thường. Cả 14 case đã được tải về
-`storage/reference-damages/` (kèm file metadata `.json` cùng tên để quét folder
-nhận đủ giá ngay) và seed sẵn trong `DataSeeder`:
+Trang MoMo có mục **"Một số trường hợp thực tế"** — mỗi case gồm **3 ảnh** thiệt hại
+thật (nhiều góc khác nhau của cùng 1 vụ) + phí bảo hiểm + phí bồi thường. Cả
+**42 ảnh** đã được tải về `storage/reference-damages/` (kèm file metadata `.json`
+cùng tên để quét folder nhận đủ giá ngay) và seed sẵn trong `DataSeeder`.
+3 ảnh của 1 case chia sẻ cùng mức giá bồi thường, đánh mã `REF_xx` (ảnh chính),
+`REF_xxb` (ảnh 2), `REF_xxc` (ảnh 3) — nhiều góc giúp AI đối chiếu đúng vết hơn,
+và vì mỗi vết chỉ khớp với 1 ảnh mẫu nên tổng tiền không bị tính trùng:
 
 | Mã | Xe / vụ việc | Vùng hư hại chính | Mức | Bồi thường |
 |---|---|---|---|---|
