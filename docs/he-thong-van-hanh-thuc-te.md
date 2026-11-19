@@ -153,14 +153,16 @@ không trộn với nội dung đã xác minh.
   Nguồn: code: `ClaimAssessmentService.java` (lưu ảnh chỉ xảy ra sau khi
   `identity.isPassed()`).
 
-### Bước 6 — Gọi Gemini đánh giá (1 request duy nhất)
+### Bước 6 — Gọi Gemini đánh giá (3 lần kiểm chứng, nhiệt độ 0)
 
-- Gửi kèm trong 1 lần gọi: ảnh mẫu có nhãn + ảnh gốc của xe + ảnh khách gửi +
-  system prompt. Ép trả về `application/json` theo `responseSchema` (không có
-  markdown).
-  Nguồn: code: `GeminiService.java` (dòng 105–106, `responseMimeType` +
-  `responseSchema`; dòng 154 `geminiService.assess` trong
-  `ClaimAssessmentService.java`).
+- Gửi 3 lần giống hệt nhau (cùng bộ ảnh + prompt, nhiệt độ 0): ảnh mẫu có nhãn
+  + ảnh gốc của xe + ảnh khách gửi + system prompt. Ép trả về
+  `application/json` theo `responseSchema` (không có markdown). Lấy lần chạy
+  có tổng ở giữa (trung vị); giá từng vết chốt theo 3 nấc của bảng giá
+  (min/giữa/max) bằng `PriceTableService.snapToAnchor`. Chỉ 1/3 lần OK thì
+  chuyển giám định viên. Ghi chú kiểm chứng hiện ở kết quả (`consensusNote`).
+  Nguồn: code: `GeminiService.java` (`assess` + `mergeConsensus` +
+  `snapToAnchor` trong `PriceTableService.java`).
 - System prompt bắt AI làm 2 bước. **Bước 1 — cổng kiểm tra (validation gate),
   AI phải phản biện thẳng thắn:**
   - a) Ảnh có phải ảnh ô tô không? Không phải → REJECTED.
@@ -175,8 +177,9 @@ không trộn với nội dung đã xác minh.
 - **Bước 2 — định giá theo bảng tham chiếu (không theo loại xe):**
   - Ảnh mẫu chỉ dùng để nhận diện bộ phận + mức độ. Giá trên ảnh mẫu là
     **tổng tiền cả vụ**, không lấy làm giá 1 vết.
-  - Mỗi vết: xác định bộ phận + mức độ → tra bảng giá → chọn mức hợp lý nhất
-    trong khoảng (nhẹ thì gần min, nặng thì gần max), giải thích trong
+  - Mỗi vết: xác định bộ phận + mức độ (`severityLevel`) → tra bảng giá →
+    chỉ chọn 1 trong 3 nấc: min (nhẹ trong mức), giữa (trung bình), max (nặng
+    trong mức); ghi rõ nấc đã chọn trong
     `referenceComparisonNote`.
   - Giá **không phụ thuộc hãng/model xe** (cùng bộ phận + cùng mức độ thì cùng
     giá). Xe sang/nhập khẩu, đèn LED/laser/adaptive, ADAS, khung nặng vượt

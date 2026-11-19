@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +80,10 @@ public class GeminiService {
     }
 
     /**
-     * Goi Gemini tham dinh.
+     * Goi Gemini tham dinh theo luong kiem chung chat che (de giam sai so giua cac lan chay):
+     * chay 3 lan o nhiet do 0 voi cung 1 bo anh + prompt, lay lan chay co tong o giua (trung vi),
+     * chot gia tung vet ve nac gan nhat cua bang gia (min/giua/max). Gia van len xuong theo
+     * muc do hu hai that, chi khong cho chon so le giua cac nac nua.
      *
      * @param vehicle      ho so xe goc (de doi chieu mau/loai xe)
      * @param references   anh mau du tru (da resize + Base64)
@@ -89,6 +93,109 @@ public class GeminiService {
      * @param customerNote mo ta them cua khach ve vu viec (co the rong)
      */
     public GeminiAssessmentResult assess(CustomerVehicle vehicle,
+                                         List<ReferencePayload> references,
+                                         List<String> baselineBase64,
+                                         List<String> customerBase64,
+                                         List<String> blurryHints,
+                                         String customerNote) {
+        List<GeminiAssessmentResult> runs = new ArrayList<>();
+        GeminiException lastError = null;
+        for (int i = 0; i < 3; i++) {
+            try {
+                runs.add(assessOnce(vehicle, references, baselineBase64, customerBase64, blurryHints, customerNote));
+            } catch (GeminiException e) {
+                lastError = e;
+                log.warn("Lan chay kiem chung {} that bai: {}", i + 1, e.getMessage());
+            }
+        }
+        if (runs.isEmpty()) {
+            throw lastError != null ? lastError : new GeminiException("Gemini không trả về kết quả.");
+        }
+        return mergeConsensus(runs);
+    }
+
+    /**
+     * Hop nhat cac lan chay thanh 1 ket qua: lay cac lan OK, chon lan co tong o giua (trung vi),
+     * chot gia tung vet ve nac bang gia. Khong co lan OK nao -> lay trang thai nghiem ngat
+     * nhat (REJECTED > NEEDS_MORE_INFO) kem cac van de da gom.
+     */
+    private GeminiAssessmentResult mergeConsensus(List<GeminiAssessmentResult> runs) {
+        List<GeminiAssessmentResult> okRuns = new ArrayList<>();
+        for (GeminiAssessmentResult r : runs) {
+            if ("OK".equals(statusOf(r))) okRuns.add(r);
+        }
+        if (okRuns.isEmpty()) {
+            GeminiAssessmentResult strictest = runs.get(0);
+            for (GeminiAssessmentResult r : runs) {
+                if ("REJECTED".equals(statusOf(r))) { strictest = r; break; }
+                if ("NEEDS_MORE_INFO".equals(statusOf(r))) strictest = r;
+            }
+            if (strictest.getValidation() == null) {
+                GeminiAssessmentResult.Validation v = new GeminiAssessmentResult.Validation();
+                v.setStatus("NEEDS_MORE_INFO");
+                v.setIssues(List.of("Không nhận được kết quả hợp lệ từ AI."));
+                strictest.setValidation(v);
+            }
+            GeminiAssessmentResult out = new GeminiAssessmentResult();
+            out.setValidation(strictest.getValidation());
+            out.setAssessmentSummary(strictest.getAssessmentSummary());
+            out.setDamages(List.of());
+            out.setTotalCompensationVnd(0);
+            out.setRequiresHumanReview(false);
+            out.setHumanReviewReason(strictest.getHumanReviewReason());
+            out.setConsensusNote("Đã chạy kiểm chứng " + runs.size() + "/3 lần ở nhiệt độ 0, không lần nào đủ điều kiện thẩm định.");
+            return out;
+        }
+        okRuns.sort(Comparator.comparingLong(GeminiAssessmentResult::getTotalCompensationVnd));
+        GeminiAssessmentResult chosen = okRuns.get((okRuns.size() - 1) / 2);
+        boolean weak = okRuns.size() < 3;
+        // Chot gia tung vet ve nac bang gia + tinh lai tong.
+        long total = 0;
+        List<GeminiAssessmentResult.Damage> damages = chosen.getDamages() == null
+                ? new ArrayList<>() : new ArrayList<>(chosen.getDamages());
+        for (GeminiAssessmentResult.Damage d : damages) {
+            long snapped = priceTableService.snapToAnchor(d.getPartName(), d.getSeverityLevel(), d.getEstimatedCostVnd());
+            d.setEstimatedCostVnd(snapped);
+            total += snapped;
+        }
+        chosen.setDamages(damages);
+        chosen.setTotalCompensationVnd(total);
+        if (weak) {
+            chosen.setRequiresHumanReview(true);
+            String reason = "Chỉ " + okRuns.size() + "/3 lần chạy kiểm chứng cho kết quả OK — cần giám định viên xem lại.";
+            chosen.setHumanReviewReason(chosen.getHumanReviewReason() == null || chosen.getHumanReviewReason().isBlank()
+                    ? reason : chosen.getHumanReviewReason() + " " + reason);
+        }
+        List<Long> totals = new ArrayList<>();
+        for (GeminiAssessmentResult r : okRuns) totals.add(r.getTotalCompensationVnd());
+        totals.sort(Long::compareTo);
+        StringBuilder note = new StringBuilder("Đã chạy thẩm định 3 lần ở nhiệt độ 0");
+        if (okRuns.size() < 3) note.append(" (").append(okRuns.size()).append(" lần cho kết quả OK)");
+        note.append(", lấy kết quả giữa (tổng các lần OK: ");
+        for (int i = 0; i < totals.size(); i++) {
+            if (i > 0) note.append(" / ");
+            note.append(String.format("%,d", totals.get(i))).append(" đ");
+        }
+        note.append("); giá từng vết đã chốt theo 3 nấc của bảng giá (min/giữa/max).");
+        chosen.setConsensusNote(note.toString());
+        return chosen;
+    }
+
+    private static String statusOf(GeminiAssessmentResult r) {
+        return r.getValidation() == null ? null : r.getValidation().getStatus();
+    }
+
+    /**
+     * 1 lan goi Gemini tham dinh duy nhat (phuc vu luong kiem chung 3 lan o assess()).
+     *
+     * @param vehicle      ho so xe goc (de doi chieu mau/loai xe)
+     * @param references   anh mau du tru (da resize + Base64)
+     * @param baselineBase64 anh goc cua xe luc mua bao hiem (co the rong)
+     * @param customerBase64 anh khach gui (da resize + Base64)
+     * @param blurryHints  canh bao anh mo tu backend, VD: "Ảnh khách 2 có dấu hiệu mờ"
+     * @param customerNote mo ta them cua khach ve vu viec (co the rong)
+     */
+    private GeminiAssessmentResult assessOnce(CustomerVehicle vehicle,
                                          List<ReferencePayload> references,
                                          List<String> baselineBase64,
                                          List<String> customerBase64,
@@ -106,7 +213,7 @@ public class GeminiService {
                 Map.of("text", buildSystemPrompt(vehicle, blurryHints)))));
         body.put("contents", List.of(Map.of("parts", buildParts(references, baselineBase64, customerBase64, customerNote))));
         Map<String, Object> generationConfig = new LinkedHashMap<>();
-        generationConfig.put("temperature", 0.2);
+        generationConfig.put("temperature", 0);
         generationConfig.put("responseMimeType", "application/json");
         generationConfig.put("responseSchema", buildResponseSchema());
         body.put("generationConfig", generationConfig);
@@ -187,7 +294,7 @@ public class GeminiService {
                 + "chỉ theo đúng JSON schema đã cho.\n"
                 + "BẢNG GIÁ THAM CHIẾU (căn cứ định giá, xe phổ thông, không theo hãng/model xe):\n"
                 + priceTableService.formatForPrompt()
-                + "Cách định giá: tìm ảnh mẫu giống nhất để xác định bộ phận + mức độ, rồi lấy giá từ BẢNG GIÁ trên (mức hợp lí nhất trong khoảng của bộ phận + mức độ đó). "
+                + "Cách định giá: tìm ảnh mẫu giống nhất để xác định bộ phận + mức độ, rồi lấy giá từ BẢNG GIÁ trên (chỉ 1 trong 3 nấc: min/giữa/max của khoảng, theo nhẹ/trung bình/nặng trong mức độ đó). "
                 + "Giá của ảnh mẫu cũ chỉ dùng để đối chiếu độ lớn, KHÔNG lấy trực tiếp. "
                 + "Nếu không xác định được bộ phận/mức độ (ảnh mờ, không phải ô tô, khác hoàn toàn kho mẫu) thì trả matchedReferenceId = \"\", "
                 + "suggestedPriceVnd = 0, confidenceScore = 0 và giải thích lý do. KHÔNG được đoán giá khi không có căn cứ. confidenceScore: 0.0-1.0.";
@@ -206,7 +313,7 @@ public class GeminiService {
         parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", newImageBase64)));
         body.put("contents", List.of(Map.of("parts", parts)));
         Map<String, Object> generationConfig = new LinkedHashMap<>();
-        generationConfig.put("temperature", 0.2);
+        generationConfig.put("temperature", 0);
         generationConfig.put("responseMimeType", "application/json");
         generationConfig.put("responseSchema", buildSuggestionSchema());
         body.put("generationConfig", generationConfig);
@@ -249,7 +356,14 @@ public class GeminiService {
             if (text == null || text.isBlank()) {
                 throw new GeminiException("Gemini không trả về nội dung gợi ý giá.");
             }
-            return objectMapper.readValue(stripCodeFences(text), PriceSuggestion.class);
+            PriceSuggestion suggestion = objectMapper.readValue(stripCodeFences(text), PriceSuggestion.class);
+            if (suggestion.suggestedPriceVnd() > 0) {
+                long snapped = priceTableService.snapToAnchor(
+                        suggestion.partName(), suggestion.severityLevel(), suggestion.suggestedPriceVnd());
+                suggestion = new PriceSuggestion(suggestion.matchedReferenceId(), suggestion.partName(),
+                        suggestion.severityLevel(), snapped, suggestion.confidenceScore(), suggestion.reason());
+            }
+            return suggestion;
         } catch (GeminiException e) {
             throw e;
         } catch (Exception e) {
@@ -354,6 +468,7 @@ public class GeminiService {
         sb.append("BƯỚC 2 - ĐÁNH GIÁ THIỆT HẠI (chỉ làm khi validation.status = OK):\n");
         sb.append("1) CHỐNG TRÙNG LẶP: khách chụp 1 xe từ nhiều góc; cùng 1 vết hư hại xuất hiện ở nhiều ảnh chỉ được tính bồi thường 1 LẦN DUY NHẤT. Gộp các ảnh cùng vết trước khi tính tiền.\n");
         sb.append("2) ĐỐI CHIẾU CHUẨN XÁC: với mỗi vết hư hại, so bộ phận + mức độ với từng ảnh mẫu, chọn matchedReferenceId có mức độ tương đương nhất, "
+                + "ghi rõ severityLevel của vết (1 = Xước nhẹ, 2 = Móp vừa, 3 = Vỡ/Biến dạng nặng) đúng với mức độ đã phán, "
                 + "giải thích ngắn gọn trong referenceComparisonNote. Nếu không có ảnh mẫu nào tương đương, để matchedReferenceId = null, "
                 + "ước lượng giá theo mô tả và đặt requiresHumanReview = true.\n");
         sb.append("3) CƠ CHẾ AN TOÀN: nếu xe hư hại quá nặng, nát khung gầm, túi khí bung nhiều, hoặc vượt ngoài phạm vi bộ ảnh mẫu, "
@@ -364,8 +479,9 @@ public class GeminiService {
         sb.append(priceTableService.formatForPrompt());
         sb.append("   a) Ảnh mẫu REF_xx chỉ dùng để NHẬN DIỆN bộ phận + mức độ (so sánh hình ảnh). Giá ghi trên mỗi ảnh mẫu là giá tham chiếu của case đó, "
                 + "có thể là TỔNG TIỀN CẢ VỤ của case MoMo - KHÔNG được lấy số đó làm estimatedCostVnd của 1 vết.\n");
-        sb.append("   b) Với mỗi vết: xác định bộ phận + mức độ -> tra BẢNG GIÁ trên -> chọn MỨC GIÁ HỢP LÍ NHẤT trong khoảng: gần min nếu hư hại nhẹ trong mức độ, "
-                + "giữa khoảng nếu trung bình, gần max nếu nặng. Ghi rõ cách chọn trong referenceComparisonNote.\n");
+        sb.append("   b) Với mỗi vết: xác định bộ phận + mức độ (severityLevel) -> tra BẢNG GIÁ trên -> estimatedCostVnd CHỈ được chọn 1 trong 3 nấc: "
+                + "giá MIN của khoảng (hư hại nhẹ trong mức độ), giá GIỮA khoảng (trung bình), giá MAX của khoảng (nặng trong mức độ). "
+                + "KHÔNG chọn số khác ngoài 3 nấc này. Ghi rõ nấc đã chọn (min/giữa/max) trong referenceComparisonNote.\n");
         sb.append("   c) Giá KHÔNG phụ thuộc hãng/model xe: cùng bộ phận + cùng mức độ thì cùng giá bảng, dù là Seltos hay Everest. "
                 + "Xe sang/nhập khẩu, đèn LED/laser/adaptive, cảm biến ADAS, khung sườn biến dạng nặng: nếu vượt bảng thì giải thích rõ và đặt requiresHumanReview = true, KHÔNG tự nhân hệ số.\n");
         sb.append("   d) Nếu bộ phận không có trong bảng: ước lượng theo mức tương đương gần nhất, ghi rõ trong referenceComparisonNote và đặt requiresHumanReview = true.\n");
@@ -383,9 +499,10 @@ public class GeminiService {
                 "observedCondition", Map.of("type", "STRING"),
                 "matchedReferenceId", Map.of("type", "STRING"),
                 "referenceComparisonNote", Map.of("type", "STRING"),
+                "severityLevel", Map.of("type", "INTEGER"),
                 "estimatedCostVnd", Map.of("type", "NUMBER"),
                 "confidenceScore", Map.of("type", "NUMBER")));
-        damageItem.put("required", List.of("partName", "observedCondition", "estimatedCostVnd", "confidenceScore"));
+        damageItem.put("required", List.of("partName", "observedCondition", "severityLevel", "estimatedCostVnd", "confidenceScore"));
 
         Map<String, Object> validation = new LinkedHashMap<>();
         validation.put("type", "OBJECT");

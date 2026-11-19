@@ -7,8 +7,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.text.Normalizer;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -31,6 +34,11 @@ public class PriceTableService {
 
     private final ObjectMapper objectMapper;
     private volatile String promptBlock;
+    private volatile List<PriceRow> priceRows;
+
+    /** 1 dong gia: bo phan x muc do x khoang gia (doc tu price-table.json). */
+    public record PriceRow(String part, int severity, long minVnd, long maxVnd) {
+    }
 
     public PriceTableService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -97,6 +105,77 @@ public class PriceTableService {
             log.warn("Khong doc duoc price-table.json, dung bang gia rut gon: {}", e.getMessage());
             return fallbackBlock();
         }
+    }
+
+    /** Doc cac dong gia (bo phan x muc do) de chot gia theo nac. Doc loi -> danh sach rong, giu nguyen gia AI. */
+    private List<PriceRow> rows() {
+        List<PriceRow> rows = priceRows;
+        if (rows == null) {
+            synchronized (this) {
+                rows = priceRows;
+                if (rows == null) {
+                    rows = loadRows();
+                    priceRows = rows;
+                }
+            }
+        }
+        return rows;
+    }
+
+    private List<PriceRow> loadRows() {
+        List<PriceRow> rows = new ArrayList<>();
+        try (InputStream in = getClass().getResourceAsStream("/price-table.json")) {
+            if (in == null) return rows;
+            JsonNode root = objectMapper.readTree(in);
+            for (JsonNode item : root.path("items")) {
+                rows.add(new PriceRow(item.path("part").asText(), item.path("severity").asInt(),
+                        item.path("minVnd").asLong(), item.path("maxVnd").asLong()));
+            }
+        } catch (Exception e) {
+            log.warn("Khong doc duoc bang gia de chot nac: {}", e.getMessage());
+        }
+        return rows;
+    }
+
+    /**
+     * Chot gia AI dua ve nac gan nhat cua o (bo phan x muc do): min / giua / max.
+     * Gia van len xuong theo muc do hu hai that (nhe -> min, nang -> max), chi
+     * khong cho chon so le giua cac nac nua. Khong khop o nao (bo phan la, muc
+     * do khong co trong bang) -> tra nguyen gia AI.
+     */
+    public long snapToAnchor(String partName, int severityLevel, long price) {
+        if (partName == null || partName.isBlank() || price <= 0) return price;
+        String target = normalize(partName);
+        for (PriceRow row : rows()) {
+            if (row.severity() != severityLevel) continue;
+            if (!matchesPart(target, row.part())) continue;
+            long mid = (row.minVnd() + row.maxVnd()) / 2;
+            long[] anchors = {row.minVnd(), mid, row.maxVnd()};
+            long best = anchors[0];
+            long bestDist = Math.abs(price - best);
+            for (int i = 1; i < anchors.length; i++) {
+                long d = Math.abs(price - anchors[i]);
+                if (d < bestDist) { bestDist = d; best = anchors[i]; }
+            }
+            return best;
+        }
+        return price;
+    }
+
+    /** Ten bo phan trong bang co the gom nhieu phuong an cach nhau bang '/' (VD 'Can truoc / Can sau'). */
+    private boolean matchesPart(String normalizedAiPart, String tablePart) {
+        for (String alt : tablePart.split("/")) {
+            String a = normalize(alt.replaceAll("\\(.*?\\)", ""));
+            if (a.isBlank()) continue;
+            if (normalizedAiPart.contains(a) || a.contains(normalizedAiPart)) return true;
+        }
+        return false;
+    }
+
+    /** Bo dau tieng Viet + chu thuong + chi giu chu cai/so/khoang trang (de so ten bo phan). */
+    private static String normalize(String s) {
+        String n = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return n.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").replaceAll(" +", " ").trim();
     }
 
     /** Ban rut gon dung khi khong doc duoc file JSON - he thong van dinh gia duoc. */

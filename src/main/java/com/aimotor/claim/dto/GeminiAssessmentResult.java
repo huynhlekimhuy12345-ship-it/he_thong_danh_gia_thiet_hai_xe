@@ -14,6 +14,8 @@ public class GeminiAssessmentResult {
     private long totalCompensationVnd;
     private boolean requiresHumanReview;
     private String humanReviewReason;
+    /** Ghi chu ve qua trinh kiem chung (khong phai do AI tra ve): VD chay 3 lan lay trung vi. */
+    private String consensusNote;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Validation {
@@ -35,6 +37,8 @@ public class GeminiAssessmentResult {
         private String observedCondition;
         private String matchedReferenceId;
         private String referenceComparisonNote;
+        /** Muc do hu hai: 1 = Xuoc nhe, 2 = Mop vua, 3 = Vo/Bien dang nang. */
+        private int severityLevel;
         private long estimatedCostVnd;
         private double confidenceScore;
 
@@ -46,6 +50,8 @@ public class GeminiAssessmentResult {
         public void setMatchedReferenceId(String matchedReferenceId) { this.matchedReferenceId = matchedReferenceId; }
         public String getReferenceComparisonNote() { return referenceComparisonNote; }
         public void setReferenceComparisonNote(String referenceComparisonNote) { this.referenceComparisonNote = referenceComparisonNote; }
+        public int getSeverityLevel() { return severityLevel; }
+        public void setSeverityLevel(int severityLevel) { this.severityLevel = severityLevel; }
         public long getEstimatedCostVnd() { return estimatedCostVnd; }
         public void setEstimatedCostVnd(long estimatedCostVnd) { this.estimatedCostVnd = estimatedCostVnd; }
         public double getConfidenceScore() { return confidenceScore; }
@@ -64,4 +70,6 @@ public class GeminiAssessmentResult {
     public void setRequiresHumanReview(boolean requiresHumanReview) { this.requiresHumanReview = requiresHumanReview; }
     public String getHumanReviewReason() { return humanReviewReason; }
     public void setHumanReviewReason(String humanReviewReason) { this.humanReviewReason = humanReviewReason; }
+    public String getConsensusNote() { return consensusNote; }
+    public void setConsensusNote(String consensusNote) { this.consensusNote = consensusNote; }
 }

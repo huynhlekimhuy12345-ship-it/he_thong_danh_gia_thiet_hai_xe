@@ -51,6 +51,9 @@ public class ClaimAssessment {
     /** Mo ta them cua khach ve vu viec (khong bat buoc), gui kem cho Gemini + luu vao kho mau. */
     private String customerNote;
 
+    /** Ghi chu ve qua trinh kiem chung 3 lan (chi tra ve kem ket qua, KHONG luu xuong SQLite). */
+    private String consensusNote;
+
     private Instant createdAt = Instant.now();
 
     public ClaimAssessment() {
@@ -85,6 +88,8 @@ public class ClaimAssessment {
         private String observedCondition;
         private String matchedReferenceId;
         private String referenceComparisonNote;
+        /** Muc do hu hai: 1 = Xuoc nhe, 2 = Mop vua, 3 = Vo/Bien dang nang. */
+        private int severityLevel;
         private long estimatedCostVnd;
         private double confidenceScore;
 
@@ -96,6 +101,8 @@ public class ClaimAssessment {
         public void setMatchedReferenceId(String matchedReferenceId) { this.matchedReferenceId = matchedReferenceId; }
         public String getReferenceComparisonNote() { return referenceComparisonNote; }
         public void setReferenceComparisonNote(String referenceComparisonNote) { this.referenceComparisonNote = referenceComparisonNote; }
+        public int getSeverityLevel() { return severityLevel; }
+        public void setSeverityLevel(int severityLevel) { this.severityLevel = severityLevel; }
         public long getEstimatedCostVnd() { return estimatedCostVnd; }
         public void setEstimatedCostVnd(long estimatedCostVnd) { this.estimatedCostVnd = estimatedCostVnd; }
         public double getConfidenceScore() { return confidenceScore; }
@@ -140,6 +147,8 @@ public class ClaimAssessment {
     public void setAssessmentSummary(String assessmentSummary) { this.assessmentSummary = assessmentSummary; }
     public String getCustomerNote() { return customerNote; }
     public void setCustomerNote(String customerNote) { this.customerNote = customerNote; }
+    public String getConsensusNote() { return consensusNote; }
+    public void setConsensusNote(String consensusNote) { this.consensusNote = consensusNote; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

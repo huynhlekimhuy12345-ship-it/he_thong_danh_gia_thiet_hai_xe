@@ -507,6 +507,7 @@ function renderResult(r){
       + '<br><span class="muted">'+(id.reason||'')+'</span></p>';
   }
   if(r.assessmentSummary) html += '<p style="font-size:14.5px;line-height:1.7;margin:12px 0">'+r.assessmentSummary+'</p>';
+  if(r.consensusNote) html += '<p style="font-size:13.5px;line-height:1.6;margin:12px 0;color:#34d399">🔁 '+esc(r.consensusNote)+'</p>';
   if(r.customerNote) html += '<p style="font-size:14px;line-height:1.7;margin:12px 0">📝 <b>Mô tả của khách:</b> '+esc(r.customerNote)+'</p>';
 
   if(r.damages && r.damages.length){

@@ -167,6 +167,7 @@ public class ClaimAssessmentService {
         assessment.setAssessmentSummary(result.getAssessmentSummary());
         assessment.setRequiresHumanReview(result.isRequiresHumanReview());
         assessment.setHumanReviewReason(result.getHumanReviewReason());
+        assessment.setConsensusNote(result.getConsensusNote());
 
         List<ClaimAssessment.DamageItem> damages = new ArrayList<>();
         long total = 0;
@@ -177,6 +178,7 @@ public class ClaimAssessmentService {
                 item.setObservedCondition(d.getObservedCondition());
                 item.setMatchedReferenceId(d.getMatchedReferenceId());
                 item.setReferenceComparisonNote(d.getReferenceComparisonNote());
+                item.setSeverityLevel(d.getSeverityLevel());
                 item.setEstimatedCostVnd(d.getEstimatedCostVnd());
                 item.setConfidenceScore(d.getConfidenceScore());
                 damages.add(item);
@@ -190,6 +192,31 @@ public class ClaimAssessmentService {
         assessment.setTotalCompensationVnd("OK".equals(status) ? total : 0);
         assessment.setDeductibleVnd(deductible);
         assessment.setNetCompensationVnd("OK".equals(status) ? Math.max(0, total - deductible) : 0);
+
+        // ---- Buoc 5: doi chieu voi lan tham dinh truoc cua cung xe ----
+        // Cung 1 xe ma tong lech qua 1 trieu so voi lan truoc -> gan co de giam dinh vien
+        // doi chieu (tranh truong hop chay lai cung bo anh ma ra so khac xa).
+        if ("OK".equals(status)) {
+            try {
+                for (ClaimAssessment prev : repository.findByLicensePlateOrderByCreatedAtDesc(plate)) {
+                    if (!"OK".equals(prev.getValidationStatus())) continue;
+                    long diff = Math.abs(total - prev.getTotalCompensationVnd());
+                    if (diff > 1_000_000) {
+                        assessment.setRequiresHumanReview(true);
+                        String prevDate = prev.getCreatedAt() == null ? "không rõ ngày"
+                                : String.valueOf(prev.getCreatedAt()).substring(0, 10);
+                        String flag = "Tổng chênh " + String.format("%,d", diff)
+                                + " đ so với lần thẩm định trước (mã " + prev.getClaimId()
+                                + ", ngày " + prevDate + ") — cần giám định viên đối chiếu.";
+                        String reason = assessment.getHumanReviewReason();
+                        assessment.setHumanReviewReason(reason == null || reason.isBlank() ? flag : reason + " " + flag);
+                    }
+                    break;
+                }
+            } catch (Exception e) {
+                log.warn("Khong doi chieu duoc voi lan tham dinh truoc: {}", e.getMessage());
+            }
+        }
         return repository.save(assessment);
     }
 

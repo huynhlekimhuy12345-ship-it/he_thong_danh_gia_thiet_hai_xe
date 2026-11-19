@@ -22,8 +22,11 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
         ↓
 4. Kiểm tra ảnh đầu vào: đủ số lượng, đúng định dạng, đo độ nét (Laplacian)
         ↓
-5. Gọi Gemini 1 request duy nhất gồm:
+5. Gọi Gemini 3 lần (cùng 1 bộ ảnh + prompt, nhiệt độ 0) gồm:
    [ảnh mẫu + nhãn] + [ảnh gốc của xe] + [ảnh khách] + system prompt
+   - Lấy lần chạy có tổng ở giữa (trung vị); giá từng vết chốt theo 3 nấc của bảng giá
+     (min/giữa/max) — giá vẫn lên xuống theo mức độ hư hại thật, chỉ không chọn số lẻ
+     giữa các nấc nữa; chỉ 1/3 lần OK thì chuyển giám định viên
    - Cổng kiểm tra (validation gate): AI PHẢN BIỆN nếu ảnh mờ, không phải xe,
      thiếu góc, sai xe → trả NEEDS_MORE_INFO / REJECTED + liệt kê cần bổ sung
    - Chống trùng lặp: 1 vết ở nhiều góc chỉ tính tiền 1 lần
@@ -31,6 +34,7 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
    - Quá nặng / ngoài phạm vi mẫu → requiresHumanReview = true
         ↓
 6. Kết quả JSON → lưu SQLite → hiển thị + giám định viên chốt cuối
+   (cùng 1 xe mà tổng lệch quá 1tr so với lần thẩm định trước thì gắn cờ kiểm tra tay)
         ↓
 7. Tra cứu tình trạng bồi thường (tab Tra cứu bồi thường)
    Nhập biển số + loại xe + SĐT → chỉ xe mình mới xem được hồ sơ của mình
