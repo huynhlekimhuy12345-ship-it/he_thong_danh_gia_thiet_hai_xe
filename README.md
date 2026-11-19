@@ -293,7 +293,28 @@ thật (nhiều góc khác nhau của cùng 1 vụ) + phí bảo hiểm + phí b
 cùng tên để quét folder nhận đủ giá ngay) và seed sẵn trong `DataSeeder`.
 3 ảnh của 1 case chia sẻ cùng mức giá bồi thường, đánh mã `REF_xx` (ảnh chính),
 `REF_xxb` (ảnh 2), `REF_xxc` (ảnh 3) — nhiều góc giúp AI đối chiếu đúng vết hơn,
-và vì mỗi vết chỉ khớp với 1 ảnh mẫu nên tổng tiền không bị tính trùng:
+và vì mỗi vết chỉ khớp với 1 ảnh mẫu nên tổng tiền không bị tính trùng.
+
+### Case ngoài MoMo (REF_19)
+
+- **REF_19 · Mercedes-Benz GLC200 (MIC + OPES) · "Thân xe (trầy xước nhiều
+  vết)" · Mức 1 · 8.200.000đ** — case thực tế Tuổi Trẻ (10/2026): xe bị cào
+  xước 7 vị trí trên thân xe. Chi phí sửa chữa thực tế 8.200.000đ (chủ xe trả
+  2.000.000đ, bảo hiểm MIC + OPES trả 6.200.000đ); giám định thiệt hại
+  6.862.000đ. Báo giá hãng 127,6 triệu và yêu cầu bồi thường 470 triệu đã bị
+  tòa bác — không dùng 2 số đó. 7 vị trí ≈ 1,17 triệu/vị trí, khớp khoảng sơn
+  dặm 1 chi tiết trong bảng giá tham chiếu. Ảnh là cận cảnh vết xước trên hông
+  sau (không lấy 2 ảnh còn lại của bài báo vì người chiếm gần hết khung hình,
+  vết xước mờ — ảnh mẫu phải thấy rõ vết thì AI mới đối chiếu đúng).
+
+Đã kiểm tra nhưng **không đưa vào kho**: bài báo giá sửa BMW 320i bị tai nạn
+của Gara Mỹ Đình THC (tổng 41,2tr phục hồi / 65,1tr thay mới, có báo giá chi
+tiết từng món như cản trước 7,5tr) — ảnh duy nhất trong bài là xe đang sửa
+trong gara, capo mở, **không thấy vết hư hại** nên không làm ảnh mẫu được; và
+vụ Hyundai Accent bị cây đổ (VietnamNet, báo giá 116,5tr) — ảnh là ảnh minh
+họa, số tiền đang tranh chấp tại tòa. Nguyên tắc: chỉ ảnh nào thấy rõ vết hư
+hại thật + có số tiền sửa/bồi thường xác thực mới vào kho; ảnh minh họa hoặc
+ảnh không thấy vết sẽ làm giảm độ chính xác chứ không tăng.
 
 | Mã | Xe / vụ việc | Vùng hư hại chính | Mức | Bồi thường |
 |---|---|---|---|---|

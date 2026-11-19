@@ -53,6 +53,9 @@ CASES = [
      "Tray xuoc than xe trong bai do xe trung tam thuong mai.", 6_800_000, 5_800_000, "ref-17-cerato-tray-xuoc"),
     ("REF_18", "Bao Long", "Ford Everest 2022", "Dau xe (hu hong nghiem trong)", 3, "Muc 3: Vo/Bien dang nang",
      "Va cham manh tren cao toc voi xe phia truoc, dau xe hu hong nghiem trong.", 75_000_000, 7_079_000, "ref-18-everest-dau-xe"),
+    # Case ngoai MoMo: chi co 1 anh (tham so thu 11 = so anh, mac dinh 3)
+    ("REF_19", "MIC + OPES", "Mercedes-Benz GLC200", "Than xe (tray xuoc nhieu vet)", 1, "Muc 1: Xuoc nhe",
+     "Bi cao xuoc 7 vi tri tren than xe (cua, hong sau). Chi phi sua chua thuc te 8.200.000d; giam dinh thiet hai 6.862.000d. Bao gia hang 127,6 trieu va yeu cau 470 trieu da bi toa bac.", 8_200_000, None, "ref-19-merc-glc200-tray-xuoc", 1),
 ]
 
 SCHEMA = """
@@ -103,7 +106,7 @@ CREATE TABLE IF NOT EXISTS reference_cases (
     severity_label   TEXT NOT NULL,
     description      TEXT NOT NULL,
     compensation_vnd INTEGER NOT NULL,
-    premium_vnd      INTEGER NOT NULL
+    premium_vnd      INTEGER  -- phi bao hiem / nam, NULL neu khong ro
 );
 
 -- 42 anh mau: 3 anh/case (goc khac nhau, cung gia). ref_id = REF_xx / REF_xxb / REF_xxc
@@ -144,12 +147,13 @@ def main():
         cur.execute("INSERT INTO case_level_anchors (label, min_vnd, max_vnd, source) VALUES (?, ?, ?, ?)",
                     (a["label"], a["minVnd"], a["maxVnd"], a["source"]))
     for c in CASES:
-        ref, insurer, vehicle, part, sev, sev_label, desc, comp, prem, slug = c
+        ref, insurer, vehicle, part, sev, sev_label, desc, comp, prem, slug = c[:10]
+        n_photos = c[10] if len(c) > 10 else 3  # mac dinh 3 anh/case (MoMo)
         cur.execute(
             "INSERT INTO reference_cases (ref_id, insurer, vehicle, part, severity, severity_label,"
             " description, compensation_vnd, premium_vnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (ref, insurer, vehicle, part, sev, sev_label, desc, comp, prem))
-        for angle, suffix in ((1, ""), (2, "b"), (3, "c")):
+        for angle, suffix in ((1, ""), (2, "b"), (3, "c"))[:n_photos]:
             prefix = "ref-" + ref[4:]  # REF_05 -> ref-05
             fname = slug if not suffix else slug.replace(prefix, prefix + suffix, 1)
             cur.execute(
@@ -168,7 +172,7 @@ def main():
     # Kiem tra
     checks = {
         "price_sources": 12, "price_items": 30, "case_level_anchors": 4,
-        "reference_cases": 14, "reference_photos": 42,
+        "reference_cases": 15, "reference_photos": 43,
     }
     ok = True
     for tbl, expect in checks.items():

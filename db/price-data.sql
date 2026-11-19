@@ -90,7 +90,7 @@ CREATE TABLE reference_cases (
     severity_label   TEXT NOT NULL,
     description      TEXT NOT NULL,
     compensation_vnd INTEGER NOT NULL,
-    premium_vnd      INTEGER NOT NULL
+    premium_vnd      INTEGER  -- phi bao hiem / nam, NULL neu khong ro
 );
 INSERT INTO "reference_cases" VALUES('REF_05','PVI','Kia Seltos 2024','Dong co (thuy kich)',3,'Muc 3: Vo/Bien dang nang','Di qua doan duong ngap nuoc, dong co bi thuy kich.',42000000,7110000);
 INSERT INTO "reference_cases" VALUES('REF_06','PVI','Kia Carnival 2024','Duoi xe (can sau)',3,'Muc 3: Vo/Bien dang nang','Lui xe trong bai do dong, va cham xe phia sau, hu hong duoi xe.',32000000,11300000);
@@ -106,6 +106,7 @@ INSERT INTO "reference_cases" VALUES('REF_15','DBV','Mazda 2 2022','Than xe (tra
 INSERT INTO "reference_cases" VALUES('REF_16','DBV','VinFast VF3 2024','Can truoc (tray xuoc, bong son)',2,'Muc 2: Mop vua','MoMo khong co mo ta cho case nay - mo ta theo anh: can truoc tray xuoc, bong son.',6800000,3300000);
 INSERT INTO "reference_cases" VALUES('REF_17','Liberty','Kia Cerato 2022','Than xe (tray xuoc)',1,'Muc 1: Xuoc nhe','Tray xuoc than xe trong bai do xe trung tam thuong mai.',6800000,5800000);
 INSERT INTO "reference_cases" VALUES('REF_18','Bao Long','Ford Everest 2022','Dau xe (hu hong nghiem trong)',3,'Muc 3: Vo/Bien dang nang','Va cham manh tren cao toc voi xe phia truoc, dau xe hu hong nghiem trong.',75000000,7079000);
+INSERT INTO "reference_cases" VALUES('REF_19','MIC + OPES','Mercedes-Benz GLC200','Than xe (tray xuoc nhieu vet)',1,'Muc 1: Xuoc nhe','Bi cao xuoc 7 vi tri tren than xe (cua, hong sau). Chi phi sua chua thuc te 8.200.000d; giam dinh thiet hai 6.862.000d. Bao gia hang 127,6 trieu va yeu cau 470 trieu da bi toa bac.',8200000,NULL);
 CREATE TABLE reference_photos (
     ref_id   TEXT PRIMARY KEY,
     case_ref TEXT NOT NULL REFERENCES reference_cases (ref_id),
@@ -154,6 +155,7 @@ INSERT INTO "reference_photos" VALUES('REF_17c','REF_17','ref-17c-cerato-tray-xu
 INSERT INTO "reference_photos" VALUES('REF_18','REF_18','ref-18-everest-dau-xe.jpg',1);
 INSERT INTO "reference_photos" VALUES('REF_18b','REF_18','ref-18b-everest-dau-xe.jpg',2);
 INSERT INTO "reference_photos" VALUES('REF_18c','REF_18','ref-18c-everest-dau-xe.jpg',3);
+INSERT INTO "reference_photos" VALUES('REF_19','REF_19','ref-19-merc-glc200-tray-xuoc.jpg',1);
 DELETE FROM "sqlite_sequence";
 INSERT INTO "sqlite_sequence" VALUES('price_sources',12);
 INSERT INTO "sqlite_sequence" VALUES('price_items',30);

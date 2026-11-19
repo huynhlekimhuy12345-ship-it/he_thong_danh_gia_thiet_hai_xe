@@ -210,7 +210,10 @@ public class DataSeeder implements CommandLineRunner {
                         75_000_000, "storage/reference-damages/ref-18b-everest-dau-xe.jpg"),
                 new ReferenceDamage("REF_18c", "Dau xe (hu hong nghiem trong)", 3, "Muc 3: Vo/Bien dang nang",
                         "Case thuc te MoMo - Ford Everest 2022 (Bao Long): va cham manh tren cao toc voi xe phia truoc, hu hong phan dau xe nghiem trong. Phi bao hiem 7.079.000d/nam, boi thuong 75.000.000d. (Anh 3/3 cua case nay - cung muc gia boi thuong.)",
-                        75_000_000, "storage/reference-damages/ref-18c-everest-dau-xe.jpg")
+                        75_000_000, "storage/reference-damages/ref-18c-everest-dau-xe.jpg"),
+                new ReferenceDamage("REF_19", "Than xe (tray xuoc nhieu vet)", 1, "Muc 1: Xuoc nhe",
+                        "Case thuc te Tuoi Tre (10/2026) - Mercedes-Benz GLC200: bi cao xuoc 7 vi tri tren than xe (cua, hong sau). Chi phi sua chua thuc te 8.200.000d (chu xe tra 2.000.000d, bao hiem MIC + OPES tra 6.200.000d); giam dinh thiet hai 6.862.000d. Bao gia hang 127,6 trieu va yeu cau boi thuong 470 trieu da bi toa bac - KHONG dung 2 so do. 7 vi tri ~ 1,17 trieu/vi tri, khop khoang son dam 1 chi tiet trong bang gia tham chieu.",
+                        8_200_000, "storage/reference-damages/ref-19-merc-glc200-tray-xuoc.jpg")
         );
 
         int seeded = 0;
