@@ -226,6 +226,50 @@ Muốn cập nhật giá: sửa `price-table.json` rồi khởi động lại ap
 để hệ thống vẫn chạy). `README` này liệt kê đầy đủ 12 nguồn + URL trong file
 JSON (mục `sources`).
 
+## Lưu trữ giá bằng SQLite (`db/`)
+
+Toàn bộ thông tin giá (bảng giá, nguồn, mốc tổng, 14 case MoMo, 42 ảnh mẫu)
+còn được lưu trong SQLite để tra cứu, đối chiếu và dùng lại ở nơi khác:
+
+| File | Để làm gì |
+|---|---|
+| `db/price-data.db` | File SQLite dùng ngay — mở bằng **DB Browser for SQLite** (miễn phí) hoặc `sqlite3 price-data.db` |
+| `db/price-data.sql` | Schema + toàn bộ INSERT — xem/sửa bằng tay, nạp lại bằng `sqlite3 price-data.db < price-data.sql` |
+| `db/build-price-db.py` | Script sinh lại cả 2 file trên từ `price-table.json` + 14 case MoMo: `python3 db/build-price-db.py` |
+
+Các bảng:
+
+- `meta` — phiên bản, ngày cập nhật, tiền tệ, phạm vi áp dụng.
+- `price_sources` — 12 nguồn uy tín (tên, link, dùng cho mục nào).
+- `price_items` — 30 mức giá: 11 bộ phận × 3 mức độ, kèm `confidence`
+  (`cao` = nhiều nguồn khớp nhau, `trung bình` = ước tính theo mặt bằng chung).
+- `case_level_anchors` — 4 mốc kiểm tra tổng (va quẹt nhỏ, va chạm nặng,
+  thủy kích, sơn toàn xe).
+- `reference_cases` — 14 case thực tế MoMo (hãng bảo hiểm, xe, bộ phận, mức
+  độ, mô tả, **tổng tiền bồi thường cả vụ**, phí bảo hiểm/năm).
+- `reference_photos` — 42 ảnh mẫu (3 ảnh/case, mã `REF_xx` / `REF_xxb` /
+  `REF_xxc`, trỏ tới file thật trong `storage/reference-damages/`).
+
+Ví dụ tra cứu:
+
+```sql
+-- Giá sơn/gò/thay cản trước theo mức độ
+SELECT severity, action, min_vnd, max_vnd FROM price_items
+WHERE part = 'Cản trước / Cản sau' ORDER BY severity;
+
+-- Case bồi thường cao nhất
+SELECT ref_id, vehicle, part, compensation_vnd FROM reference_cases
+ORDER BY compensation_vnd DESC LIMIT 5;
+
+-- 3 ảnh của 1 case
+SELECT ref_id, file_name FROM reference_photos WHERE case_ref = 'REF_05';
+```
+
+Lưu ý: app hiện vẫn đọc giá từ `price-table.json` lúc chạy (đơn giản, sửa là
+xong); file SQLite này là **kho lưu trữ/tra cứu** dùng chung một nguồn dữ liệu,
+không phải database vận hành của app. Nếu muốn app đọc giá thẳng từ SQLite
+thay cho JSON thì bảo em nối tiếp.
+
 ### 14 case thực tế đã đưa vào kho ảnh mẫu (REF_05–REF_18, 42 ảnh)
 
 Trang MoMo có mục **"Một số trường hợp thực tế"** — mỗi case gồm **3 ảnh** thiệt hại
