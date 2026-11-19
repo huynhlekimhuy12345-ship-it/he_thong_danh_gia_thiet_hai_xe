@@ -243,10 +243,10 @@ không trộn với nội dung đã xác minh.
 | Tổng số ảnh mẫu | **47 ảnh** | kiểm chứng: `ls storage/reference-damages/*.jpg` = 47; `grep -c "new ReferenceDamage" DataSeeder.java` = 47 |
 | Ảnh seed test (AI tạo, cần thay bằng ảnh thật) | 4 ảnh (REF_01–04) | code: `DataSeeder.java` |
 | Ảnh case thực tế | 43 ảnh (42 MoMo + 1 Tuổi Trẻ) | kiểm chứng: `ls storage/reference-damages/*.json` = 43 (mỗi ảnh case có 1 file metadata .json) |
-| Tổng số case | **15 case** | db: `SELECT COUNT(*) FROM reference_cases` = 15 |
-| Tổng tiền bồi thường 15 case | **356.500.000đ** | db: `SELECT SUM(compensation_vnd) FROM reference_cases` = 356500000 |
+| Tổng số case thực tế | **15 case** (chưa tính 4 ảnh seed REF_01–04 ở mục 3.2; tổng cộng 19 mã REF gốc) | db: `SELECT COUNT(*) FROM reference_cases` = 15 |
+| Tổng tiền bồi thường 15 case thực tế | **356.500.000đ** (chưa tính 21.800.000đ giá mẫu của 4 ảnh seed) | db: `SELECT SUM(compensation_vnd) FROM reference_cases` = 356500000 |
 | Hãng bảo hiểm | 8 (PVI, PJICO, Bảo Việt, GIC, DBV, Liberty, Bảo Long, MIC + OPES) | db: `SELECT DISTINCT insurer FROM reference_cases` |
-| Số xe khác nhau | 15 xe | db: `SELECT COUNT(DISTINCT vehicle) FROM reference_cases` |
+| Số xe khác nhau | 15 xe (chỉ tính 15 case thực tế; 4 ảnh seed không gắn xe cụ thể) | db: `SELECT COUNT(DISTINCT vehicle) FROM reference_cases` |
 | Phân bố mức độ | Mức 1: 3 case; Mức 2: 7 case; Mức 3: 5 case | db: `SELECT severity, COUNT(*) FROM reference_cases GROUP BY severity` |
 
 ### 3.2. 4 ảnh seed test (AI tạo — chưa phải ảnh thật)
