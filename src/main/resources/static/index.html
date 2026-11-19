@@ -208,7 +208,7 @@
         <div><label>Màu xe gốc *</label><input id="v-color" placeholder="VD: Trắng"><div class="field-err" id="err-v-color"></div></div>
         <div><label>Hãng xe</label><input id="v-brand" list="brandList" placeholder="Gõ để xem gợi ý — VD: Toyota"><datalist id="brandList"></datalist></div>
         <div><label>Dòng xe</label><input id="v-model" list="modelList" placeholder="Gõ hãng xe trước, rồi chọn dòng xe"><datalist id="modelList"></datalist></div>
-        <div><label>Năm sản xuất</label><input id="v-year" type="number" min="1980" inputmode="numeric" placeholder="VD: 2022"><div class="field-err" id="err-v-year"></div></div>
+        <div><label>Năm sản xuất</label><select id="v-year"><option value="">— Chọn năm —</option></select><div class="field-err" id="err-v-year"></div></div>
         <div><label>Ảnh gốc của xe (nhiều ảnh)</label>
           <div class="dropzone" id="v-dropzone" style="padding:16px 12px">
             <b>📸 Thả ảnh gốc vào đây hoặc bấm để chọn</b>
@@ -653,8 +653,8 @@ function parseDob(s){
   return m[3]+'-'+m[2]+'-'+m[1]; // ISO yyyy-MM-dd cho backend
 }
 
-// Nam san xuat: gioi han 1980..nam nay (keo nut giam tren o trong cung khong xuong -1).
-$('#v-year').max = new Date().getFullYear();
+// Nam san xuat: danh sach luot len/xuong tu nam nay ve 1980.
+(function(){ const sel = $('#v-year'); const nowY = new Date().getFullYear(); for(let y = nowY; y >= 1980; y--){ const o = document.createElement('option'); o.value = String(y); o.textContent = String(y); sel.appendChild(o); } })();
 
 // Anh goc: keo-tha + bam de chon, xem truoc, xoa tung anh (giong tab Tham dinh).
 let baselineFiles = [];
@@ -713,13 +713,10 @@ $('#btnRegister').addEventListener('click', async ()=>{
   if(!/^0\d{9}$/.test(phone)){ setFieldErr('v-phone','Nhập SĐT 10 số bắt đầu bằng 0, VD: 0901234567.'); ok=false; }
   const color = $('#v-color').value.trim();
   if(!color){ setFieldErr('v-color','Nhập màu xe.'); ok=false; }
-  const yearRaw = $('#v-year').value.trim();
+  const yearRaw = $('#v-year').value;
   let year = 0;
-  if(yearRaw !== ''){
-    year = parseInt(yearRaw, 10);
-    const nowY = new Date().getFullYear();
-    if(isNaN(year) || year < 1980 || year > nowY){ setFieldErr('v-year','Năm sản xuất phải từ 1980 đến ' + nowY + '.'); ok=false; }
-  }
+  if(yearRaw === ''){ setFieldErr('v-year','Chọn năm sản xuất.'); ok=false; }
+  else year = parseInt(yearRaw, 10);
   if(!ok) return;
   const fd = new FormData();
   fd.append('ownerName', owner);
