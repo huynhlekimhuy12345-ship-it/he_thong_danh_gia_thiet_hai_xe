@@ -40,6 +40,9 @@ public class ClaimAssessmentService {
     @Value("${app.assessment.min-photos:2}")
     private int minPhotos;
 
+    @Value("${app.storage.claim-dir:./storage/claims}")
+    private String claimDir;
+
     public ClaimAssessmentService(VehicleService vehicleService,
                                   ReferenceLibraryService referenceService,
                                   ImagePreprocessingService imageService,
@@ -110,9 +113,13 @@ public class ClaimAssessmentService {
         }
         List<String> customerBase64 = new ArrayList<>();
         List<String> blurryHints = new ArrayList<>();
+        List<String> claimPhotoPaths = new ArrayList<>();
         for (int i = 0; i < photos.length; i++) {
             MultipartFile photo = photos[i];
             imageService.validateImage(photo);
+            // Luu anh goc cua khach xuong dia truoc khi gui AI: storage/claims/<ma ho so>/<uuid>.jpg
+            // (anh gui AI chi la ban resize, anh goc luu o day de doi soat sau nay)
+            claimPhotoPaths.add(imageService.storeFile(photo, Paths.get(claimDir, assessment.getClaimId())));
             byte[] jpeg = imageService.toJpegBytes(photo);
             double sharpness = sharpnessService.score(jpeg);
             if (sharpnessService.isBlurry(sharpness)) {
@@ -123,6 +130,7 @@ public class ClaimAssessmentService {
         }
 
         // ---- Buoc 3: nap anh mau + anh goc, goi Gemini ----
+        assessment.setClaimPhotoPaths(claimPhotoPaths);
         List<GeminiService.ReferencePayload> references = referenceService.loadPayloads();
         List<String> baselineBase64 = new ArrayList<>();
         for (String path : vehicle.getBaselinePhotoPaths()) {

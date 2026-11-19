@@ -270,6 +270,21 @@ xong); file SQLite này là **kho lưu trữ/tra cứu** dùng chung một ngu�
 không phải database vận hành của app. Nếu muốn app đọc giá thẳng từ SQLite
 thay cho JSON thì bảo em nối tiếp.
 
+## Lưu trữ ảnh xe (`storage/`)
+
+Ảnh xe chia 3 folder riêng, mỗi folder có file `README.md` mô tả:
+
+| Folder | Chứa gì | Ai ghi | Có commit không |
+|---|---|---|---|
+| `storage/reference-damages/` | Ảnh mẫu đối chiếu (46 ảnh: 4 ảnh test + 42 ảnh case MoMo thật) + file `.json` metadata từng ảnh | Agent chuẩn bị sẵn, user thả thêm ảnh vào rồi bấm **Quét folder** | **Có** — đây là dữ liệu mẫu của hệ thống |
+| `storage/vehicles/<BIỂN-SỐ>/` | Ảnh gốc của xe lúc mua bảo hiểm (xe chưa hư hại), để đối chiếu vết cũ/mới | App tự lưu khi đăng ký hồ sơ xe | **Không** — dữ liệu thật của khách, chỉ giữ `README.md` |
+| `storage/claims/<MÃ-HỒ-SƠ>/` | Ảnh gốc khách gửi khi yêu cầu thẩm định (đúng bộ ảnh của hồ sơ đó) | App tự lưu sau bước xác minh danh tính, đường dẫn ghi trong `claimPhotoPaths` của hồ sơ | **Không** — dữ liệu thật của khách, chỉ giữ `README.md` |
+
+App tự tạo đủ 3 folder khi khởi động (`DataSeeder`). Ảnh gửi cho AI chỉ là
+bản resize (tối đa 1024px); ảnh gốc chất lượng đầy đủ luôn nằm trong 2 folder
+`vehicles/` và `claims/` để đối soát lại sau này. Hồ sơ bị từ chối ở bước xác
+minh danh tính thì ảnh không được lưu.
+
 ### 14 case thực tế đã đưa vào kho ảnh mẫu (REF_05–REF_18, 42 ảnh)
 
 Trang MoMo có mục **"Một số trường hợp thực tế"** — mỗi case gồm **3 ảnh** thiệt hại

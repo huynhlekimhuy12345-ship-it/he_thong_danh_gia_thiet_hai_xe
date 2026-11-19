@@ -34,6 +34,9 @@ public class ClaimAssessment {
 
     private List<DamageItem> damages = new ArrayList<>();
 
+    /** Duong dan anh khach gui cua ho so nay, luu tren dia o storage/claims/<claimId>/ */
+    private List<String> claimPhotoPaths = new ArrayList<>();
+
     private long totalCompensationVnd;
 
     /** Muc mien thuong da tru (VND/vu, theo cau hinh luc tham dinh). */
@@ -118,6 +121,8 @@ public class ClaimAssessment {
     public void setIdentityCheck(IdentityCheck identityCheck) { this.identityCheck = identityCheck; }
     public List<DamageItem> getDamages() { return damages; }
     public void setDamages(List<DamageItem> damages) { this.damages = damages; }
+    public List<String> getClaimPhotoPaths() { return claimPhotoPaths; }
+    public void setClaimPhotoPaths(List<String> claimPhotoPaths) { this.claimPhotoPaths = claimPhotoPaths; }
     public long getTotalCompensationVnd() { return totalCompensationVnd; }
     public void setTotalCompensationVnd(long totalCompensationVnd) { this.totalCompensationVnd = totalCompensationVnd; }
     public long getDeductibleVnd() { return deductibleVnd; }

@@ -3,8 +3,10 @@ target/
 .idea/
 *.iml
 .DS_Store
-# Anh khach hang / anh xe goc (du lieu that, khong commit)
-storage/vehicles/
-storage/claims/
+# Anh khach hang / anh xe goc (du lieu that, khong commit - chi giu lai README mo ta folder)
+storage/vehicles/*
+!storage/vehicles/README.md
+storage/claims/*
+!storage/claims/README.md
 # Key that lo vao file .env thi khong commit
 .env
