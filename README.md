@@ -102,6 +102,24 @@ dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true
 **tạm thời không được gửi cho AI** (tránh định giá 0 đồng). Bấm **✏️ Sửa** trên thẻ
 ảnh để bổ sung bộ phận + mức độ + giá chuẩn, lưu xong ảnh mới được đưa vào thẩm định.
 
+**Nhập đủ giá ngay bằng file metadata kèm theo:** đặt cạnh file ảnh một file
+JSON cùng tên (VD: `ref-05-seltos-thuy-kich.jpg` + `ref-05-seltos-thuy-kich.json`)
+với nội dung:
+
+```json
+{
+  "partName": "Động cơ (thủy kích)",
+  "severityLevel": 3,
+  "severityLabel": "Mức 3: Vỡ/Biến dạng nặng",
+  "description": "Xe bị ngập nước, hư hỏng động cơ.",
+  "standardPriceVnd": 42000000
+}
+```
+
+Lúc quét, ảnh có file metadata hợp lệ (đủ `partName` + `standardPriceVnd > 0`)
+sẽ vào thẳng kho chính thức, không cần bổ sung tay. 14 case MoMo (REF_05–REF_18)
+đã kèm sẵn file `.json` theo cách này.
+
 ## API chính
 
 | Method | Endpoint | Mô tả |
@@ -174,12 +192,38 @@ số bồi thường thực nhận đề xuất. Xem mục Mức giá tham chi�
 
 Nguồn: https://www.momo.vn/bao-hiem-o-to/than-vo (truy cập 19/11/2026).
 
-> ⚠️ Lưu ý thẳng thắn: trang MoMo là bài viết về **bảo hiểm thân vỏ**, KHÔNG có
-> ảnh chụp thiệt hại theo từng bộ phận và KHÔNG có bảng giá sửa chữa theo món.
-> 2 ảnh infographic trên trang là bảng phí bảo hiểm theo giá trị xe và công thức
-> tính phí — đó là **phí bảo hiểm/năm, không phải giá sửa xe** — nên KHÔNG đưa
-> vào kho ảnh mẫu (đưa ảnh quảng cáo vào làm mẫu sẽ làm AI đối chiếu sai).
-> Những gì lấy được từ trang này và đã đưa vào app:
+### 14 case thực tế đã đưa vào kho ảnh mẫu (REF_05–REF_18)
+
+Trang MoMo có mục **"Một số trường hợp thực tế"** — mỗi case gồm ảnh thiệt hại
+thật + phí bảo hiểm + phí bồi thường. Cả 14 case đã được tải về
+`storage/reference-damages/` (kèm file metadata `.json` cùng tên để quét folder
+nhận đủ giá ngay) và seed sẵn trong `DataSeeder`:
+
+| Mã | Xe / vụ việc | Vùng hư hại chính | Mức | Bồi thường |
+|---|---|---|---|---|
+| REF_05 | Kia Seltos 2024 — ngập nước, hư động cơ | Động cơ (thủy kích) | 3 | 42.000.000đ |
+| REF_06 | Kia Carnival 2024 — lùi xe bãi đỗ | Đuôi xe (cản sau) | 3 | 32.000.000đ |
+| REF_07 | Honda HR-V 2024 — va xe máy, trầy + móp nhẹ | Thân xe | 2 | 14.000.000đ |
+| REF_08 | Mitsubishi Xpander 2024 — va xe máy, vỡ đèn pha phải | Đầu xe + đèn pha | 3 | 13.200.000đ |
+| REF_09 | Toyota Fortuner 2022 — phá hoại đỗ qua đêm | Toàn thân + gương | 2 | 22.500.000đ |
+| REF_10 | Toyota Camry 2023 — chuyển làn va xe khác | Cửa xe | 2 | 25.000.000đ |
+| REF_11 | Honda CR-V 2023 — lùi bãi đỗ | Cản sau + đèn hậu | 2 | 28.000.000đ |
+| REF_12 | VinFast VF5 2024 — va trụ bê tông | Đầu xe | 2 | 8.500.000đ |
+| REF_13 | VinFast VF9 2024 — va mạnh quốc lộ | Đầu xe + thân xe | 3 | 58.000.000đ |
+| REF_14 | Toyota Innova 2021 — rơi vật, móp capo | Nắp capo | 2 | 12.000.000đ |
+| REF_15 | Mazda 2 2022 — trầy nhẹ vỉa hè | Thân xe | 1 | 4.500.000đ |
+| REF_16 | VinFast VF3 2024 — cản trước bong sơn | Cản trước | 2 | 6.800.000đ |
+| REF_17 | Kia Cerato 2022 — trầy xước TTTM | Thân xe | 1 | 6.800.000đ |
+| REF_18 | Ford Everest 2022 — va mạnh cao tốc | Đầu xe | 3 | 75.000.000đ |
+
+> ⚠️ Lưu ý quan trọng: "phí bồi thường" của mỗi case là **TỔNG tiền cả vụ**
+> (toàn bộ thiệt hại của vụ đó), được gán cho vùng hư hại chính — không phải
+> bảng giá sửa chữa theo từng món. VD: Seltos 42tr là toàn bộ chi phí sửa động
+> cơ ngập nước; Fortuner 22,5tr là sơn lại toàn thân + thay gương. AI đối chiếu
+> vết hư hại với case gần nhất và đề xuất theo tổng tiền case đó; giám định viên
+> vẫn chốt cuối cùng.
+
+### Mức miễn thường + neo giá thị trường
 
 | Hạng mục | Giá trị tham chiếu | Dùng trong app |
 |---|---|---|
@@ -188,6 +232,10 @@ Nguồn: https://www.momo.vn/bao-hiem-o-to/than-vo (truy cập 19/11/2026).
 | Va chạm nặng | 30–80 triệu đồng | Như trên |
 | Thủy kích (ngập nước động cơ) | 20–60 triệu đồng (VD thực tế: Kia Seltos 2024 — 42.000.000đ) | Như trên |
 | Phí bảo hiểm thân vỏ | 1,4%–2,0%/năm giá trị xe (VD: xe 800tr → phí từ 8tr/năm) | Chỉ để tham khảo, KHÔNG dùng để định giá thiệt hại |
+
+> 2 ảnh infographic trên trang MoMo (bảng phí theo giá trị xe, công thức tính
+> phí) là **phí bảo hiểm/năm, không phải giá sửa xe** — nên KHÔNG đưa vào kho
+> ảnh mẫu.
 
 ## Gợi ý giá cho ảnh mẫu mới
 

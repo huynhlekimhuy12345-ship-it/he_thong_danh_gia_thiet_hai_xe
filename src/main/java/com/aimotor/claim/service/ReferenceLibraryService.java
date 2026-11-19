@@ -2,6 +2,10 @@ package com.aimotor.claim.service;
 
 import com.aimotor.claim.model.ReferenceDamage;
 import com.aimotor.claim.repository.ReferenceDamageRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,19 +23,24 @@ import java.util.List;
 @Service
 public class ReferenceLibraryService {
 
+    private static final Logger log = LoggerFactory.getLogger(ReferenceLibraryService.class);
+
     private final ReferenceDamageRepository repository;
     private final ImagePreprocessingService imageService;
     private final GeminiService geminiService;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.storage.reference-dir:./storage/reference-damages}")
     private String referenceDir;
 
     public ReferenceLibraryService(ReferenceDamageRepository repository,
                                    ImagePreprocessingService imageService,
-                                   GeminiService geminiService) {
+                                   GeminiService geminiService,
+                                   ObjectMapper objectMapper) {
         this.repository = repository;
         this.imageService = imageService;
         this.geminiService = geminiService;
+        this.objectMapper = objectMapper;
     }
 
     public List<ReferenceDamage> listAll() {
@@ -80,6 +89,9 @@ public class ReferenceLibraryService {
      * Quet thu muc anh mau: file anh nao chua co trong DB se duoc nhan vao kho
      * o dang NHAP (needsMetadata = true) voi ma REF_xx tiep theo.
      * Anh nhap CHUA co gia chuan nen tam thoi khong dung de tham dinh.
+     * Neu co file metadata kem theo (cung ten file, duoi .json, VD:
+     * ref-05-seltos-thuy-kich.json) voi partName + standardPriceVnd > 0
+     * thi anh duoc nhan thang vao kho chinh thuc, khong can bo sung tay.
      */
     public List<ReferenceDamage> scanFolder() throws IOException {
         Path dir = Paths.get(referenceDir);
@@ -113,12 +125,42 @@ public class ReferenceLibraryService {
                 if (knownHashes.contains(hash)) {
                     continue;
                 }
+                // File metadata kem theo (VD: ref-05-....json): du thong tin thi
+                // nhan thang vao kho chinh thuc, khong can bo sung tay.
+                String partName = "Chưa phân loại";
+                int severityLevel = 2;
+                String severityLabel = "Mức 2: Móp vừa";
+                String description = "Ảnh tự quét từ folder — cần bổ sung bộ phận, mức độ và giá chuẩn trước khi dùng để thẩm định.";
+                long price = 0;
+                boolean complete = false;
+                Path sidecar = file.resolveSibling(
+                        file.getFileName().toString().replaceFirst("\\.[^.]+$", "") + ".json");
+                if (Files.exists(sidecar)) {
+                    try {
+                        JsonNode meta = objectMapper.readTree(sidecar.toFile());
+                        String p = meta.path("partName").asText("").trim();
+                        long pr = meta.path("standardPriceVnd").asLong(0);
+                        if (!p.isEmpty() && pr > 0) {
+                            partName = p;
+                            severityLevel = Math.min(3, Math.max(1, meta.path("severityLevel").asInt(2)));
+                            severityLabel = meta.path("severityLabel").asText("").trim();
+                            if (severityLabel.isEmpty()) {
+                                severityLabel = severityLevel == 1 ? "Mức 1: Xước nhẹ"
+                                        : severityLevel == 2 ? "Mức 2: Móp vừa"
+                                        : "Mức 3: Vỡ/Biến dạng nặng";
+                            }
+                            description = meta.path("description").asText("");
+                            price = pr;
+                            complete = true;
+                        }
+                    } catch (Exception e) {
+                        log.warn("Khong doc duoc file metadata {}: {}", sidecar, e.getMessage());
+                    }
+                }
                 ReferenceDamage ref = new ReferenceDamage(
-                        nextReferenceId(),
-                        "Chưa phân loại", 2, "Mức 2: Móp vừa",
-                        "Ảnh tự quét từ folder — cần bổ sung bộ phận, mức độ và giá chuẩn trước khi dùng để thẩm định.",
-                        0, normalized);
-                ref.setNeedsMetadata(true);
+                        nextReferenceId(), partName, severityLevel, severityLabel,
+                        description, price, normalized);
+                ref.setNeedsMetadata(!complete);
                 ref.setImageHash(hash);
                 imported.add(repository.save(ref));
                 knownPaths.add(normalized);
