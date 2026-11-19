@@ -1,22 +1,17 @@
 package com.aimotor.claim.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Ho so xe goc cua khach hang (1 xe = 1 ho so).
+ * Ho so xe goc cua khach hang (1 xe = 1 ho so), luu trong SQLite (bang customer_vehicles).
  * Anh goc cua xe duoc luu o day ngay khi mua bao hiem, lam "mau" de doi chieu
  * khi co thiet hai: dung loai xe, dung SDT, dung bien so moi duoc tham dinh.
  */
-@Document(collection = "customer_vehicles")
 public class CustomerVehicle {
 
-    @Id
     private String id;
 
     /** Ten chu xe (ghi day du khi mua bao hiem) */

@@ -52,6 +52,9 @@
   .thumb img{width:100%;height:100%;object-fit:cover}
   .thumb button{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;font-size:12px}
   .thumb span{position:absolute;left:0;right:0;bottom:0;font-size:10.5px;background:rgba(0,0,0,.65);padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .field-err{color:#f87171;font-size:12.5px;margin-top:5px;line-height:1.5;display:none}
+  .field-err.show{display:block}
+  input.invalid,select.invalid{border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.15)}
   .checklist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
   @media(max-width:640px){.checklist{grid-template-columns:1fr}}
   .checklist div{font-size:13px;color:var(--muted);background:rgba(255,255,255,.03);border:1px solid var(--card-border);border-radius:10px;padding:9px 12px}
@@ -99,15 +102,15 @@
   </header>
 
   <div class="tabs">
-    <button class="tab active" data-tab="assess">🔍 Thẩm định</button>
+    <button class="tab active" data-tab="vehicle">🛡️ Mua bảo hiểm</button>
+    <button class="tab" data-tab="assess">🔍 Thẩm định</button>
     <button class="tab" data-tab="lookup">📋 Tra cứu bồi thường</button>
-    <button class="tab" data-tab="vehicle">🛡️ Mua bảo hiểm</button>
     <button class="tab" data-tab="refs">🗂️ Kho ảnh mẫu</button>
     <button class="tab" data-tab="settings">⚙️ Cài đặt</button>
   </div>
 
   <!-- ============ TAB THAM DINH ============ -->
-  <section class="panel active" id="panel-assess">
+  <section class="panel" id="panel-assess">
     <div class="card">
       <h2>1 · Thông tin xe cần thẩm định</h2>
       <p class="hint">Nhập đúng biển số + SĐT + loại xe đã đăng ký khi mua bảo hiểm. Hệ thống sẽ hiện xe gốc (thông tin + ảnh gốc) để bạn xác nhận đúng xe của mình, rồi mới cho chụp ảnh hư hại.</p>
@@ -116,8 +119,8 @@
         <div><label>Số điện thoại khách hàng *</label><input id="phone" placeholder="VD: 0901234567"></div>
         <div><label>Loại xe *</label>
           <select id="vtype">
-            <option>Sedan</option><option>SUV</option><option>Hatchback</option>
-            <option>Bán tải</option><option>MPV</option><option>Khác</option>
+            <option>Sedan</option><option>SUV</option><option>Crossover</option><option>Hatchback</option>
+            <option>MPV</option><option>Bán tải</option><option>Coupe</option><option>Xe tải</option><option>Xe khách</option><option>Khác</option>
           </select>
         </div>
       </div>
@@ -159,7 +162,7 @@
 
     <div class="card">
       <h2>Lịch sử thẩm định</h2>
-      <p class="hint">Các hồ sơ đã thẩm định gần đây (lưu trong MongoDB).</p>
+      <p class="hint">Các hồ sơ đã thẩm định gần đây (lưu trong SQLite).</p>
       <div id="history"><span class="muted">Đang tải…</span></div>
     </div>
   </section>
@@ -174,8 +177,8 @@
         <div><label>Số điện thoại *</label><input id="lk-phone" placeholder="VD: 0901234567"></div>
         <div><label>Loại xe *</label>
           <select id="lk-type">
-            <option>Sedan</option><option>SUV</option><option>Hatchback</option>
-            <option>Bán tải</option><option>MPV</option><option>Khác</option>
+            <option>Sedan</option><option>SUV</option><option>Crossover</option><option>Hatchback</option>
+            <option>MPV</option><option>Bán tải</option><option>Coupe</option><option>Xe tải</option><option>Xe khách</option><option>Khác</option>
           </select>
         </div>
       </div>
@@ -185,23 +188,31 @@
   </section>
 
   <!-- ============ TAB HO SO XE ============ -->
-  <section class="panel" id="panel-vehicle">
+  <section class="panel active" id="panel-vehicle">
     <div class="card">
       <h2>Mua bảo hiểm — Đăng ký hồ sơ xe gốc</h2>
       <p class="hint">Bước đầu tiên khi mua bảo hiểm: ghi đầy đủ thông tin chủ xe + xe, và chụp ảnh toàn bộ xe lúc còn nguyên vẹn (ảnh gốc). Sau này xe bị hư hại, AI sẽ đối chiếu ảnh mới với ảnh gốc này để loại vết cũ và xác minh đúng xe.</p>
       <div class="grid2">
-        <div><label>Tên chủ xe *</label><input id="v-owner" placeholder="VD: Nguyễn Văn A"></div>
-        <div><label>Ngày sinh chủ xe *</label><input id="v-dob" type="date"></div>
-        <div><label>Biển số xe *</label><input id="v-plate" placeholder="VD: 51H-12345"></div>
-        <div><label>Số điện thoại *</label><input id="v-phone" placeholder="VD: 0901234567"></div>
+        <div><label>Tên chủ xe *</label><input id="v-owner" placeholder="VD: Nguyễn Văn A"><div class="field-err" id="err-v-owner"></div></div>
+        <div><label>Ngày sinh chủ xe *</label><input id="v-dob" type="text" inputmode="numeric" placeholder="dd/mm/yyyy — VD: 15/05/1990"><div class="field-err" id="err-v-dob"></div></div>
+        <div><label>Biển số xe *</label><input id="v-plate" placeholder="VD: 51H-12345"><div class="field-err" id="err-v-plate"></div></div>
+        <div><label>Số điện thoại *</label><input id="v-phone" inputmode="tel" placeholder="VD: 0901234567"><div class="field-err" id="err-v-phone"></div></div>
         <div><label>Loại xe *</label>
-          <select id="v-type"><option>Sedan</option><option>SUV</option><option>Hatchback</option><option>Bán tải</option><option>MPV</option><option>Khác</option></select>
+          <select id="v-type"><option>Sedan</option><option>SUV</option><option>Crossover</option><option>Hatchback</option><option>MPV</option><option>Bán tải</option><option>Coupe</option><option>Xe tải</option><option>Xe khách</option><option>Khác</option></select>
         </div>
-        <div><label>Màu xe gốc *</label><input id="v-color" placeholder="VD: Trắng"></div>
-        <div><label>Hãng xe</label><input id="v-brand" placeholder="VD: Toyota"></div>
-        <div><label>Dòng xe</label><input id="v-model" placeholder="VD: Vios"></div>
-        <div><label>Năm sản xuất</label><input id="v-year" type="number" placeholder="VD: 2022"></div>
-        <div><label>Ảnh gốc của xe (nhiều ảnh)</label><input id="v-photos" type="file" accept="image/*" multiple></div>
+        <div><label>Màu xe gốc *</label><input id="v-color" placeholder="VD: Trắng"><div class="field-err" id="err-v-color"></div></div>
+        <div><label>Hãng xe</label><input id="v-brand" list="brandList" placeholder="Gõ để xem gợi ý — VD: Toyota"><datalist id="brandList"></datalist></div>
+        <div><label>Dòng xe</label><input id="v-model" list="modelList" placeholder="Gõ hãng xe trước, rồi chọn dòng xe"><datalist id="modelList"></datalist></div>
+        <div><label>Năm sản xuất</label><input id="v-year" type="number" min="1980" inputmode="numeric" placeholder="VD: 2022"><div class="field-err" id="err-v-year"></div></div>
+        <div><label>Ảnh gốc của xe (nhiều ảnh)</label>
+          <div class="dropzone" id="v-dropzone" style="padding:16px 12px">
+            <b>📸 Thả ảnh gốc vào đây hoặc bấm để chọn</b>
+            <p>Hỗ trợ JPG / PNG · tối đa 10MB/ảnh</p>
+          </div>
+          <input id="v-photoInput" type="file" accept="image/*" multiple hidden>
+          <div class="thumbs" id="v-thumbs"></div>
+          <span class="muted" id="v-photoCount" style="font-size:13px"></span>
+        </div>
       </div>
       <div class="checklist" style="margin-top:16px">
         <div><b>☐</b> Ảnh toàn xe ban đầu: góc trước · góc sau · sườn trái · sườn phải</div>
@@ -218,23 +229,12 @@
   <!-- ============ TAB KHO ANH MAU ============ -->
   <section class="panel" id="panel-refs">
     <div class="card">
-      <h2>Thêm ảnh mẫu mới</h2>
-      <p class="hint">Mỗi ảnh mẫu cần nhãn đầy đủ thì AI mới đối chiếu và định giá được: bộ phận, mức độ, giá chuẩn đã trả thực tế.</p>
-      <div class="grid3">
-        <div><label>Mã mẫu *</label><input id="r-id" placeholder="VD: REF_05"></div>
-        <div><label>Bộ phận *</label><input id="r-part" placeholder="VD: Cản sau"></div>
-        <div><label>Mức độ *</label>
-          <select id="r-level"><option value="1">Mức 1: Xước nhẹ</option><option value="2">Mức 2: Móp vừa</option><option value="3">Mức 3: Vỡ/Biến dạng nặng</option></select>
-        </div>
-        <div><label>Giá chuẩn (VND) *</label><input id="r-price" type="number" placeholder="VD: 2500000"></div>
-        <div><label>Ảnh mẫu *</label><input id="r-image" type="file" accept="image/*"></div>
-        <div><label>Mô tả chi tiết</label><input id="r-desc" placeholder="VD: Cản sau nứt dài 20cm..."></div>
-      </div>
-      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn" id="btnAddRef">➕ Thêm vào kho mẫu</button>
+      <h2>Ảnh mẫu mới đến từ hồ sơ thẩm định</h2>
+      <p class="hint">Ảnh mẫu không thêm tay nữa. Sau khi AI thẩm định + định giá xong 1 hồ sơ, bấm <b>💾 Lưu vào kho mẫu</b> ở kết quả thẩm định hoặc ở lịch sử — toàn bộ ảnh + thông tin xe (loại xe, hãng, dòng, năm, màu) + từng vết hư hại và giá ước tính sẽ được lưu thành ảnh mẫu, để AI đối chiếu cho các vụ tương tự sau này, kể cả khác loại xe.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn ghost" id="btnScanRefs">🔄 Quét folder ảnh mẫu</button>
       </div>
-      <p class="hint" style="margin-top:10px">Thả ảnh trực tiếp vào thư mục <b>storage/reference-damages/</b> rồi bấm <b>Quét folder</b> (app cũng tự quét mỗi lần khởi động) — ảnh mới vào kho ở dạng nháp, cần bổ sung bộ phận + giá chuẩn rồi mới dùng để thẩm định.</p>
+      <p class="hint" style="margin-top:10px">Ngoài ra vẫn có thể thả ảnh trực tiếp vào thư mục <b>storage/reference-damages/</b> rồi bấm <b>Quét folder</b> (app cũng tự quét mỗi lần khởi động) — ảnh mới vào kho ở dạng nháp, cần bổ sung bộ phận + giá chuẩn rồi mới dùng để thẩm định.</p>
     </div>
     <div class="card" id="editRefCard" style="display:none">
       <h2>Bổ sung / sửa thông tin ảnh mẫu</h2>
@@ -263,7 +263,7 @@
   <section class="panel" id="panel-settings">
     <div class="card">
       <h2>Gemini API Key</h2>
-      <p class="hint">Lấy key miễn phí tại <b>Google AI Studio</b> (aistudio.google.com/apikey). Key chỉ lưu trên server của bạn (MongoDB hoặc biến môi trường), không gửi đi đâu khác. Có thể đặt biến môi trường <b>GEMINI_API_KEY</b> thay cho việc nhập ở đây.</p>
+      <p class="hint">Lấy key miễn phí tại <b>Google AI Studio</b> (aistudio.google.com/apikey). Key chỉ lưu trên server của bạn (SQLite hoặc biến môi trường), không gửi đi đâu khác. Có thể đặt biến môi trường <b>GEMINI_API_KEY</b> thay cho việc nhập ở đây.</p>
       <div class="grid2">
         <div><label>API Key *</label><input id="cfg-key" type="password" placeholder="AIza..."></div>
         <div><label>Model</label><input id="cfg-model" value="gemini-3.8-flash"></div>
@@ -354,7 +354,7 @@ async function loadConfig(){
     const badge = $('#keyBadge');
     if(c.apiKeyConfigured){ badge.textContent = '● Gemini đã cấu hình ' + (c.apiKeyHint||''); badge.classList.add('ok'); }
     else { badge.textContent = '⚠️ Chưa có Gemini API key'; badge.classList.remove('ok'); }
-    $('#cfgStatus').textContent = c.apiKeyConfigured ? ('Đã cấu hình model ' + c.model + ' ' + (c.apiKeyHint||'') + (c.apiKeyFromProperties ? ' (từ biến môi trường).' : ' (lưu trong MongoDB).')) : 'Chưa cấu hình API key — hãy nhập key ở trên hoặc đặt biến môi trường GEMINI_API_KEY.';
+    $('#cfgStatus').textContent = c.apiKeyConfigured ? ('Đã cấu hình model ' + c.model + ' ' + (c.apiKeyHint||'') + (c.apiKeyFromProperties ? ' (từ biến môi trường).' : ' (lưu trong SQLite).')) : 'Chưa cấu hình API key — hãy nhập key ở trên hoặc đặt biến môi trường GEMINI_API_KEY.';
     $('#cfg-model').value = c.model || 'gemini-3.8-flash';
     $('#cfg-deductible').value = (c.deductibleVnd!=null && c.deductibleVnd!==undefined) ? c.deductibleVnd : 500000;
   }catch(e){ $('#keyBadge').textContent = '⚠️ Không kết nối được server'; }
@@ -519,6 +519,9 @@ function renderResult(r){
   if(r.requiresHumanReview){
     html += '<div class="banner warn" style="margin-top:14px"><b>👨‍🔧 Cần giám định viên kiểm tra trực tiếp.</b><br>' + (r.humanReviewReason||'') + '</div>';
   }
+  if(r.damages && r.damages.length){
+    html += '<div style="margin-top:14px"><button class="btn" onclick="saveClaimToLibrary(\''+r.id+'\')">💾 Lưu hồ sơ này vào kho mẫu</button> <span class="muted">Lưu từng vết hư hại + ảnh + thông tin xe vào kho để AI đối chiếu vụ sau.</span></div>';
+  }
   html += '</div>';
   box.innerHTML = html;
   box.scrollIntoView({behavior:'smooth'});
@@ -530,13 +533,27 @@ async function loadHistory(){
     const list = await api('/api/assessments');
     const box = $('#history');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có hồ sơ nào.</span>'; return; }
-    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Chủ xe</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th></tr></thead><tbody>'
+    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Chủ xe</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th><th>Kho mẫu</th></tr></thead><tbody>'
       + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
         + '</td><td class="money">'+fmt((r.netCompensationVnd!=null&&r.netCompensationVnd!==undefined)?r.netCompensationVnd:(r.totalCompensationVnd||0))+'</td><td>'
-        + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra</span>':'<span class="muted">Không cần</span>')+'</td></tr>').join('')
+        + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra</span>':'<span class="muted">Không cần</span>')+'</td><td>'
+        + ((r.damages||[]).length ? '<button class="btn ghost" style="padding:7px 12px;font-size:12px" onclick="saveClaimToLibrary(\''+r.id+'\')">💾 Lưu vào kho mẫu</button>' : '<span class="muted">—</span>')
+        + '</td></tr>').join('')
       + '</tbody></table>';
   }catch(e){ $('#history').innerHTML = '<span class="muted">Không tải được lịch sử: '+e.message+'</span>'; }
+}
+
+// ---------- Luu ho so tham dinh vao kho mau ----------
+// Moi vet hu hai thanh 1 anh mau (anh khach gui + bo phan + muc do + gia uoc
+// tinh + thong tin xe), de AI doi chieu cac vu tuong tu sau nay, ke ca khac loai xe.
+async function saveClaimToLibrary(id){
+  if(!confirm('Lưu các vết hư hại + ảnh + thông tin xe của hồ sơ này vào kho mẫu?')) return;
+  try{
+    const r = await api('/api/assessments/' + id + '/save-to-library', {method:'POST'});
+    toast('Đã lưu ' + r.saved + ' ảnh mẫu vào kho.');
+    loadRefs();
+  }catch(e){ toast('Lỗi: ' + e.message); }
 }
 
 // ---------- Tra cuu tinh trang boi thuong ----------
@@ -561,22 +578,149 @@ $('#btnLookup').addEventListener('click', async ()=>{
 });
 
 // ---------- Ho so xe ----------
+// Loi hien ngay duoi tung o sai (chi o nao sai moi hien), khong gom chung 1 dong dai.
+function setFieldErr(id, msg){
+  const e = $('#err-'+id), f = $('#'+id);
+  if(e){ e.textContent = msg; e.classList.add('show'); }
+  if(f) f.classList.add('invalid');
+}
+function clearFieldErr(id){
+  const e = $('#err-'+id), f = $('#'+id);
+  if(e){ e.classList.remove('show'); e.textContent=''; }
+  if(f) f.classList.remove('invalid');
+}
+['v-owner','v-dob','v-plate','v-phone','v-color','v-year'].forEach(id=>{
+  $('#'+id).addEventListener('input', ()=> clearFieldErr(id));
+});
+
+// Goi y hang xe + dong xe (datalist cho go tu do, khong ep chon).
+const BRAND_MODELS = {
+  'Toyota': ['Vios','Corolla Cross','Corolla Altis','Camry','Fortuner','Innova','Hilux','Raize','Yaris Cross','Veloz Cross','Land Cruiser','Wigo'],
+  'Honda': ['City','Civic','CR-V','HR-V','Accord','BR-V','Brio'],
+  'Hyundai': ['Accent','Elantra','Tucson','Santa Fe','Creta','Stargazer','Grand i10','Custin','Palisade'],
+  'Kia': ['Morning','K3','K5','Seltos','Sonet','Sportage','Sorento','Carnival','Carens'],
+  'Mazda': ['Mazda 2','Mazda 3','Mazda 6','CX-3','CX-5','CX-8','CX-30','BT-50'],
+  'VinFast': ['VF 3','VF 5','VF 6','VF 7','VF 8','VF 9','VF e34','Fadil','Lux A2.0','Lux SA2.0'],
+  'Ford': ['Ranger','Everest','Territory','Explorer','Transit'],
+  'Mitsubishi': ['Xpander','Outlander','Pajero Sport','Triton','Attrage'],
+  'Suzuki': ['Swift','Ertiga','XL7','Jimny','Ciaz'],
+  'Nissan': ['Almera','Navara','Terra','Kicks','Magnite'],
+  'BMW': ['320i','X1','X3','X5','520i','730Li'],
+  'Mercedes-Benz': ['C200','E200','GLC 200','GLC 300','S450','G63'],
+  'Audi': ['A4','A6','Q3','Q5','Q7'],
+  'Lexus': ['ES 250','RX 350','NX 350','GX 550'],
+  'Peugeot': ['2008','3008','5008','Traveller'],
+  'Subaru': ['Forester','Outback','Crosstrek'],
+  'MG': ['MG5','MG ZS','MG HS','MG4 EV'],
+  'Isuzu': ['D-Max','MU-X'],
+  'Chevrolet': ['Colorado','Trailblazer']
+};
+Object.keys(BRAND_MODELS).forEach(b=>{
+  const o = document.createElement('option'); o.value = b; $('#brandList').appendChild(o);
+});
+function refreshModelList(){
+  const b = $('#v-brand').value.trim();
+  const key = Object.keys(BRAND_MODELS).find(k=>k.toLowerCase()===b.toLowerCase());
+  const list = $('#modelList'); list.innerHTML='';
+  (BRAND_MODELS[key] || []).forEach(m=>{
+    const o = document.createElement('option'); o.value = m; list.appendChild(o);
+  });
+}
+$('#v-brand').addEventListener('input', refreshModelList);
+
+// Ngay sinh: go so tu do dang dd/mm/yyyy (tu chen dau "/"), khong dung input date
+// cua trinh duyet (go dau "/" bi bo qua nen nhieu nguoi khong dien duoc).
+$('#v-dob').addEventListener('input', ()=>{
+  let d = $('#v-dob').value.replace(/\D/g,'').slice(0,8);
+  if(d.length >= 5) d = d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4);
+  else if(d.length >= 3) d = d.slice(0,2)+'/'+d.slice(2);
+  $('#v-dob').value = d;
+});
+function parseDob(s){
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||'');
+  if(!m) return null;
+  const d = new Date(+m[3], +m[2]-1, +m[1]);
+  if(d.getFullYear()!==+m[3] || d.getMonth()!==+m[2]-1 || d.getDate()!==+m[1]) return null;
+  return m[3]+'-'+m[2]+'-'+m[1]; // ISO yyyy-MM-dd cho backend
+}
+
+// Nam san xuat: gioi han 1980..nam nay (keo nut giam tren o trong cung khong xuong -1).
+$('#v-year').max = new Date().getFullYear();
+
+// Anh goc: keo-tha + bam de chon, xem truoc, xoa tung anh (giong tab Tham dinh).
+let baselineFiles = [];
+const vdz = $('#v-dropzone');
+vdz.addEventListener('click', ()=> $('#v-photoInput').click());
+['dragover','dragenter'].forEach(ev=>vdz.addEventListener(ev, e=>{e.preventDefault();vdz.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>vdz.addEventListener(ev, e=>{e.preventDefault();vdz.classList.remove('over');}));
+vdz.addEventListener('drop', e=> addBaselineFiles(e.dataTransfer.files));
+$('#v-photoInput').addEventListener('change', e=>{ addBaselineFiles(e.target.files); e.target.value=''; });
+function addBaselineFiles(fileList){
+  for(const f of fileList){
+    if(!f.type.startsWith('image/')){ toast('Bỏ qua file không phải ảnh: ' + f.name); continue; }
+    if(f.size > 10*1024*1024){ toast('Ảnh quá 10MB: ' + f.name); continue; }
+    baselineFiles.push(f);
+  }
+  renderBaselineThumbs();
+}
+function renderBaselineThumbs(){
+  const box = $('#v-thumbs'); box.innerHTML='';
+  baselineFiles.forEach((f,i)=>{
+    const d = document.createElement('div'); d.className='thumb';
+    const img = document.createElement('img'); img.src = URL.createObjectURL(f);
+    const x = document.createElement('button'); x.textContent='✕';
+    x.onclick = ()=>{ baselineFiles.splice(i,1); renderBaselineThumbs(); };
+    const s = document.createElement('span'); s.textContent = f.name;
+    d.append(img,x,s); box.appendChild(d);
+  });
+  $('#v-photoCount').textContent = baselineFiles.length ? ('Đã chọn ' + baselineFiles.length + ' ảnh gốc') : '';
+}
+
 $('#btnRegister').addEventListener('click', async ()=>{
+  // Xoa het loi cu truoc khi kiem tra lai, de chi loi hien tai moi hien.
+  ['v-owner','v-dob','v-plate','v-phone','v-color','v-year'].forEach(clearFieldErr);
+  let ok = true;
+  const owner = $('#v-owner').value.trim();
+  if(!owner){ setFieldErr('v-owner','Nhập tên chủ xe.'); ok=false; }
+  const dobIso = parseDob($('#v-dob').value.trim());
+  if(!dobIso){ setFieldErr('v-dob','Nhập ngày sinh dạng ngày/tháng/năm, VD: 15/05/1990.'); ok=false; }
+  else if(dobIso > new Date().toISOString().slice(0,10)){ setFieldErr('v-dob','Ngày sinh không được lớn hơn hôm nay.'); ok=false; }
+  const plate = $('#v-plate').value.trim();
+  if(!plate){ setFieldErr('v-plate','Nhập biển số xe.'); ok=false; }
+  const phone = $('#v-phone').value.trim();
+  if(!/^0\d{9}$/.test(phone)){ setFieldErr('v-phone','Nhập SĐT 10 số bắt đầu bằng 0, VD: 0901234567.'); ok=false; }
+  const color = $('#v-color').value.trim();
+  if(!color){ setFieldErr('v-color','Nhập màu xe.'); ok=false; }
+  const yearRaw = $('#v-year').value.trim();
+  let year = 0;
+  if(yearRaw !== ''){
+    year = parseInt(yearRaw, 10);
+    const nowY = new Date().getFullYear();
+    if(isNaN(year) || year < 1980 || year > nowY){ setFieldErr('v-year','Năm sản xuất phải từ 1980 đến ' + nowY + '.'); ok=false; }
+  }
+  if(!ok) return;
   const fd = new FormData();
-  fd.append('ownerName', $('#v-owner').value.trim());
-  fd.append('ownerDateOfBirth', $('#v-dob').value);
-  fd.append('licensePlate', $('#v-plate').value.trim());
-  fd.append('customerPhone', $('#v-phone').value.trim());
+  fd.append('ownerName', owner);
+  fd.append('ownerDateOfBirth', dobIso);
+  fd.append('licensePlate', plate);
+  fd.append('customerPhone', phone);
   fd.append('vehicleType', $('#v-type').value);
   fd.append('brand', $('#v-brand').value.trim());
   fd.append('model', $('#v-model').value.trim());
-  fd.append('year', $('#v-year').value || '0');
-  fd.append('color', $('#v-color').value.trim());
-  for(const f of $('#v-photos').files) fd.append('baselinePhotos', f);
+  fd.append('year', String(year));
+  fd.append('color', color);
+  for(const f of baselineFiles) fd.append('baselinePhotos', f);
   try{
     await api('/api/vehicles', {method:'POST', body:fd});
     toast('Đã lưu hồ sơ xe.'); loadVehicles();
-  }catch(e){ toast('Lỗi: ' + e.message); }
+  }catch(e){
+    // Loi server cung gan dung o: bien so trung -> o bien so, ngay sinh -> o ngay sinh...
+    const m = e.message || '';
+    if(/da co ho so/i.test(m)) setFieldErr('v-plate','Biển số này đã có hồ sơ. Dùng biển số khác hoặc cập nhật hồ sơ cũ.');
+    else if(/ngay sinh/i.test(m)) setFieldErr('v-dob', m);
+    else if(/ten chu xe/i.test(m)) setFieldErr('v-owner', m);
+    else toast('Lỗi: ' + m);
+  }
 });
 async function loadVehicles(){
   try{
@@ -609,25 +753,6 @@ async function deleteRef(id){
   try{ await api('/api/references/'+id, {method:'DELETE'}); toast('Đã xóa.'); loadRefs(); }
   catch(e){ toast('Lỗi: ' + e.message); }
 }
-$('#btnAddRef').addEventListener('click', async ()=>{
-  const level = parseInt($('#r-level').value);
-  const labels = {1:'Mức 1: Xước nhẹ', 2:'Mức 2: Móp vừa', 3:'Mức 3: Vỡ/Biến dạng nặng'};
-  const fd = new FormData();
-  fd.append('referenceId', $('#r-id').value.trim());
-  fd.append('partName', $('#r-part').value.trim());
-  fd.append('severityLevel', level);
-  fd.append('severityLabel', labels[level]);
-  fd.append('description', $('#r-desc').value.trim());
-  fd.append('standardPriceVnd', $('#r-price').value);
-  const img = $('#r-image').files[0];
-  if(!img){ toast('Hãy chọn ảnh mẫu.'); return; }
-  fd.append('image', img);
-  try{
-    await api('/api/references', {method:'POST', body:fd});
-    toast('Đã thêm ảnh mẫu.'); loadRefs();
-  }catch(e){ toast('Lỗi: ' + e.message); }
-});
-
 // ---------- Quet folder + sua anh mau ----------
 $('#btnScanRefs').addEventListener('click', async ()=>{
   try{

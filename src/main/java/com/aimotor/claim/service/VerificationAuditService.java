@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * Thong tin nguoi dung nhap de kiem tra khop xe (bien so, SDT, loai xe) + ket qua
  * tung muc khop hay khong la thong tin BAO MAT cua he thong: chi luu o file SQLite
- * cuc bo (mac dinh ./storage/verification-audit.db), KHONG dua len MongoDB,
- * KHONG tra ve qua API, KHONG commit len git. Xem lai bang DB Browser for SQLite.
+ * cuc bo (mac dinh ./storage/verification-audit.db), KHONG dua len database
+ * van hanh (SQLite chinh), KHONG tra ve qua API, KHONG commit len git. Xem lai bang DB Browser for SQLite.
  */
 @Service
 public class VerificationAuditService {

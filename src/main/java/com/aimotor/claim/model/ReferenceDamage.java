@@ -1,18 +1,13 @@
 package com.aimotor.claim.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
 import java.time.Instant;
 
 /**
- * 1 anh mau trong Kho anh du tru (Reference Damage Library).
+ * 1 anh mau trong Kho anh du tru (Reference Damage Library), luu trong SQLite (bang reference_damages).
  * Moi anh mau co nhan day du de Gemini doi chieu va dinh gia.
  */
-@Document(collection = "reference_damages")
 public class ReferenceDamage {
 
-    @Id
     private String id;
 
     /** Ma mau, VD: REF_01 */

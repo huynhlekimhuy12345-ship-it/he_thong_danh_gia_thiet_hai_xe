@@ -5,11 +5,9 @@ import com.aimotor.claim.service.GeminiService;
 import com.aimotor.claim.service.ReferenceLibraryService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +15,11 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
-/** API Kho anh mau du tru. */
+/**
+ * API Kho anh mau du tru.
+ * Anh mau moi chi vao kho tu ho so tham dinh (POST /api/assessments/{id}/save-to-library)
+ * hoac quet folder — KHONG them thu cong tung anh nua.
+ */
 @RestController
 @RequestMapping("/api/references")
 public class ReferenceController {
@@ -31,19 +33,6 @@ public class ReferenceController {
     @GetMapping
     public List<ReferenceDamage> list() {
         return service.listAll();
-    }
-
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> add(@RequestParam("referenceId") String referenceId,
-                                 @RequestParam("partName") String partName,
-                                 @RequestParam("severityLevel") int severityLevel,
-                                 @RequestParam("severityLabel") String severityLabel,
-                                 @RequestParam("description") String description,
-                                 @RequestParam("standardPriceVnd") long standardPriceVnd,
-                                 @RequestParam("image") MultipartFile image) throws Exception {
-        ReferenceDamage saved = service.add(referenceId, partName, severityLevel,
-                severityLabel, description, standardPriceVnd, image);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     /** Xem truc tiep anh mau (de frontend hien thi). */

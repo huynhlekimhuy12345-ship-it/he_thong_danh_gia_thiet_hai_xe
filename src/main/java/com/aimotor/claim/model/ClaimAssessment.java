@@ -1,17 +1,12 @@
 package com.aimotor.claim.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Lich su 1 lan tham dinh ho so boi thuong (luu lai de doi soat). */
-@Document(collection = "claim_assessments")
+/** Lich su 1 lan tham dinh ho so boi thuong (luu lai de doi soat), luu trong SQLite (bang claim_assessments). */
 public class ClaimAssessment {
 
-    @Id
     private String id;
 
     /** Ma ho so, VD: CLM-20261119-4821 */

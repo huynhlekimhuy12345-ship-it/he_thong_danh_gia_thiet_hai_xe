@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/** API Cau hinh Gemini (nhap API key qua giao dien, luu MongoDB). */
+/** API Cau hinh Gemini (nhap API key qua giao dien, luu SQLite). */
 @RestController
 @RequestMapping("/api/config")
 public class ConfigController {

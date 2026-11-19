@@ -10,5 +10,9 @@ storage/claims/*
 !storage/claims/README.md
 # Nhat ky xac minh danh tinh (SQLite bao mat, chi o may chay app, khong commit)
 storage/verification-audit.db
+# Database van hanh chinh (SQLite, 1 file - chi o may chay app, khong commit)
+storage/aimotor.db
+storage/aimotor.db-wal
+storage/aimotor.db-shm
 # Key that lo vao file .env thi khong commit
 .env

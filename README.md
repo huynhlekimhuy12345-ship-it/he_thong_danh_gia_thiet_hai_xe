@@ -27,10 +27,15 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
    - Đối chiếu từng vết với ảnh mẫu gần nhất → matchedReferenceId
    - Quá nặng / ngoài phạm vi mẫu → requiresHumanReview = true
         ↓
-6. Kết quả JSON → lưu MongoDB → hiển thị + giám định viên chốt cuối
+6. Kết quả JSON → lưu SQLite → hiển thị + giám định viên chốt cuối
         ↓
 7. Tra cứu tình trạng bồi thường (tab Tra cứu bồi thường)
    Nhập biển số + loại xe + SĐT → chỉ xe mình mới xem được hồ sơ của mình
+        ↓
+8. Lưu hồ sơ vào kho mẫu (tùy chọn, sau khi thẩm định xong)
+   Bấm "💾 Lưu vào kho mẫu" ở kết quả thẩm định hoặc ở lịch sử → mỗi vết hư
+   hại thành 1 ảnh mẫu (ảnh khách gửi + bộ phận + mức độ + giá ước tính +
+   thông tin xe) để AI đối chiếu các vụ tương tự sau này, kể cả khác loại xe
 ```
 
 ### Bảo mật thông tin cá nhân
@@ -45,8 +50,8 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
 - **Nhật ký xác minh danh tính lưu riêng vào SQLite** (`storage/verification-audit.db`,
   bảng `verification_log`): mỗi lần xác minh (gửi thẩm định / tra cứu / xác nhận
   xe gốc) ghi lại biển số + SĐT + loại xe đã nhập, từng mục khớp hay không, lý do
-  và mã hồ sơ. File này CHỈ ở máy chạy app, không đưa lên MongoDB, không trả về
-  qua API, không commit lên git. Xem lại bằng DB Browser for SQLite:
+  và mã hồ sơ. File này CHỈ ở máy chạy app, không đưa lên database vận hành,
+  không trả về qua API, không commit lên git. Xem lại bằng DB Browser for SQLite:
   `SELECT * FROM verification_log ORDER BY created_at DESC LIMIT 50;`
 
 ## Yêu cầu
@@ -55,7 +60,7 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
 |---|---|
 | JDK | 17+ |
 | Maven | 3.9+ |
-| MongoDB | local (`mongod`) hoặc Atlas — URI qua biến `MONGODB_URI` |
+| SQLite | 1 file duy nhất (`storage/aimotor.db`), app tự tạo bảng khi chạy — không cần cài thêm database |
 | Gemini API key | Lấy tại https://aistudio.google.com/apikey (miễn phí có hạn mức) |
 
 ## Chạy trên máy Windows (Antigravity)
@@ -69,36 +74,34 @@ cd "C:\Users\Huynh Huy\Downloads\he_thong_danh_gia_thiet_hai_xe"
 # 2. Cấu hình Gemini API key (CHỈ 1 lần, key không commit lên git)
 $env:GEMINI_API_KEY="AIza...key-cua-ban..."
 
-# 3. Chạy MongoDB local (nếu chưa có thì cài MongoDB Community rồi chạy)
-#    Hoặc đặt biến MONGODB_URI trỏ sang Atlas:
-#    $env:MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>/aimotor_claim"
-
-# 4. Build + chạy (lần đầu tải dependency hơi lâu)
+# 3. Build + chạy (lần đầu tải dependency hơi lâu)
 mvn spring-boot:run
 ```
 
 Mở trình duyệt: **http://localhost:8080**
 
-- Lần chạy đầu, hệ thống tự seed **4 ảnh mẫu** (REF_01–REF_04) vào Kho ảnh mẫu.
-- API key cũng có thể nhập ở tab **Cài đặt** trên giao diện (lưu vào MongoDB, ưu tiên hơn biến môi trường).
+- Lần chạy đầu, hệ thống tự seed **47 ảnh mẫu** vào Kho ảnh mẫu (4 ảnh test
+  REF_01–REF_04 + 42 ảnh case MoMo REF_05–REF_18 + REF_19 Mercedes).
+- API key cũng có thể nhập ở tab **Cài đặt** trên giao diện (lưu vào SQLite, ưu tiên hơn biến môi trường).
 
 ## Cấu trúc dự án
 
 ```
 ai-motor-claim-assessor/
-├── pom.xml                                  Spring Boot 3.3.5, Java 17, MongoDB, Thumbnailator
+├── pom.xml                                  Spring Boot 3.3.5, Java 17, SQLite, Thumbnailator
 ├── src/main/java/com/aimotor/claim/
 │   ├── AiMotorClaimAssessorApplication.java
 │   ├── model/          ReferenceDamage, CustomerVehicle, ClaimAssessment, AppConfig
-│   ├── repository/     MongoRepository cho 4 collection
+│   ├── repository/     JDBC (SQLite) cho 4 bảng: customer_vehicles, claim_assessments, reference_damages, app_config
 │   ├── service/
+│   │   ├── DatabaseService.java          Mo file SQLite + tao bang (storage/aimotor.db)
 │   │   ├── GeminiService.java            Gọi Gemini 3.8 Flash, system prompt + responseSchema
 │   │   ├── ClaimAssessmentService.java   Điều phối: xác minh xe → kiểm tra ảnh → gọi AI → lưu
 │   │   ├── VehicleService.java           Đăng ký xe + chuẩn hóa biển số/SĐT
 │   │   ├── ReferenceLibraryService.java  Kho ảnh mẫu
 │   │   ├── ImagePreprocessingService.java Resize 1024px + JPG 85% + Base64 (Thumbnailator)
 │   │   ├── ImageSharpnessService.java   Đo độ mờ bằng phương sai Laplacian
-│   │   └── AppConfigService.java        API key lưu MongoDB
+│   │   └── AppConfigService.java        API key lưu SQLite
 │   ├── controller/     Reference / Vehicle / Assessment / Config + GlobalExceptionHandler
 │   ├── dto/            GeminiAssessmentResult (JSON Gemini trả về)
 │   └── seed/DataSeeder.java   Seed 4 ảnh mẫu + tạo thư mục storage
@@ -115,9 +118,16 @@ ai-motor-claim-assessor/
 > ⚠️ 4 ảnh mẫu là ảnh AI tạo ra để **test luồng ngay** — khi chạy thật, hãy thay bằng ảnh
 > thiệt hại thật (kèm giá sửa chữa thực tế) qua tab **Kho ảnh mẫu**.
 
-## Thêm ảnh mẫu bằng cách thả file vào folder
+## Thêm ảnh mẫu: từ hồ sơ thẩm định, hoặc thả file vào folder
 
-Ngoài việc upload qua giao diện, có thể copy trực tiếp file ảnh (JPG/PNG/WebP) vào
+Ảnh mẫu mới chủ yếu đến từ **hồ sơ thẩm định của khách**: sau khi AI thẩm định
++ định giá xong 1 hồ sơ, bấm **💾 Lưu vào kho mẫu** ở kết quả thẩm định hoặc ở
+lịch sử — mỗi vết hư hại thành 1 ảnh mẫu (ảnh khách gửi + bộ phận + mức độ +
+giá ước tính + thông tin xe: loại xe, hãng, dòng, năm, màu), để AI đối chiếu
+cho các vụ tương tự sau này, kể cả khác loại xe. Ảnh trùng nội dung (cùng ảnh,
+khác tên file) sẽ bị chặn nhờ mã SHA-256.
+
+Ngoài ra có thể copy trực tiếp file ảnh (JPG/PNG/WebP) vào
 thư mục `storage/reference-damages/` rồi bấm nút **🔄 Quét folder ảnh mẫu** ở tab
 **Kho ảnh mẫu** (app cũng tự quét mỗi lần khởi động). Ảnh mới được nhận vào kho ở
 dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true` — ảnh nháp
@@ -147,7 +157,6 @@ sẽ vào thẳng kho chính thức, không cần bổ sung tay. 14 case MoMo (R
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | GET | `/api/references` | Liệt kê kho ảnh mẫu |
-| POST | `/api/references` | Thêm ảnh mẫu (multipart: `image` + các trường metadata) |
 | POST | `/api/references/scan` | Quét folder `storage/reference-damages/` — ảnh mới vào kho dạng nháp |
 | PUT | `/api/references/{id}` | Bổ sung / sửa metadata ảnh mẫu (bộ phận, mức độ, giá chuẩn) |
 | POST | `/api/references/{id}/suggest-price` | Gemini gợi ý giá chuẩn cho ảnh mẫu mới theo ảnh mẫu cũ |
@@ -157,6 +166,7 @@ sẽ vào thẳng kho chính thức, không cần bổ sung tay. 14 case MoMo (R
 | GET | `/api/vehicles` | Liệt kê xe đã đăng ký |
 | GET | `/api/vehicles/{plate}` | Tra xe theo biển số |
 | POST | `/api/assessments` | Gửi hồ sơ thẩm định (multipart: `licensePlate`, `customerPhone`, `vehicleType`, `photos[]`) |
+| POST | `/api/assessments/{id}/save-to-library` | Lưu hồ sơ đã thẩm định vào kho mẫu (mỗi vết → 1 ảnh mẫu) |
 | GET | `/api/assessments` | Lịch sử thẩm định |
 | GET | `/api/assessments/plate/{plate}` | Lịch sử theo biển số |
 | GET / POST | `/api/config`, `/api/config/gemini-key` | Xem / lưu Gemini API key |
@@ -298,7 +308,7 @@ thay cho JSON thì bảo em nối tiếp.
 
 | Folder | Chứa gì | Ai ghi | Có commit không |
 |---|---|---|---|
-| `storage/reference-damages/` | Ảnh mẫu đối chiếu (46 ảnh: 4 ảnh test + 42 ảnh case MoMo thật) + file `.json` metadata từng ảnh | Agent chuẩn bị sẵn, user thả thêm ảnh vào rồi bấm **Quét folder** | **Có** — đây là dữ liệu mẫu của hệ thống |
+| `storage/reference-damages/` | Ảnh mẫu đối chiếu (47 ảnh: 4 ảnh test + 42 ảnh case MoMo thật + 1 ảnh REF_19 Mercedes) + file `.json` metadata từng ảnh | Agent chuẩn bị sẵn, user thả thêm ảnh vào rồi bấm **Quét folder** | **Có** — đây là dữ liệu mẫu của hệ thống |
 | `storage/vehicles/<BIỂN-SỐ>/` | Ảnh gốc của xe lúc mua bảo hiểm (xe chưa hư hại), để đối chiếu vết cũ/mới | App tự lưu khi đăng ký hồ sơ xe | **Không** — dữ liệu thật của khách, chỉ giữ `README.md` |
 | `storage/claims/<MÃ-HỒ-SƠ>/` | Ảnh gốc khách gửi khi yêu cầu thẩm định (đúng bộ ảnh của hồ sơ đó) | App tự lưu sau bước xác minh danh tính, đường dẫn ghi trong `claimPhotoPaths` của hồ sơ | **Không** — dữ liệu thật của khách, chỉ giữ `README.md` |
 
@@ -378,7 +388,7 @@ hại thật + có số tiền sửa/bồi thường xác thực mới vào kho;
 
 ## Gợi ý giá cho ảnh mẫu mới
 
-Ảnh mẫu mới (thả vào folder rồi quét, hoặc upload) chưa có giá chuẩn: vào tab
+Ảnh mẫu mới (thả vào folder rồi quét, hoặc lưu từ hồ sơ thẩm định) chưa có giá chuẩn: vào tab
 **Kho ảnh mẫu** → bấm **✏️ Sửa** → **🤖 Gợi ý giá theo ảnh cũ**. Gemini sẽ so
 ảnh mới với các ảnh mẫu cũ đã có giá, trả về mẫu tương đương nhất + giá đề xuất
 + độ giống nhau — kiểm tra rồi bấm **Lưu** mới đưa vào kho chính thức. Nếu không

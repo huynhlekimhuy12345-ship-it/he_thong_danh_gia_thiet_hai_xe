@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-/** Cau hinh Gemini: key nhap qua giao dien (luu MongoDB) uu tien hon application.properties. */
+/** Cau hinh Gemini: key nhap qua giao dien (luu SQLite) uu tien hon application.properties. */
 @Service
 public class AppConfigService {
 

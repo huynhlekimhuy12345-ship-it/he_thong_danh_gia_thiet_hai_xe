@@ -1,13 +1,8 @@
 package com.aimotor.claim.model;
 
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-
-/** Cau hinh ung dung luu trong MongoDB (id co dinh: "gemini"). */
-@Document(collection = "app_config")
+/** Cau hinh ung dung luu trong SQLite (bang app_config, id co dinh: "gemini"). */
 public class AppConfig {
 
-    @Id
     private String id;
 
     /** Gemini API key nhap qua giao dien Cai dat (uu tien cao hon application.properties) */

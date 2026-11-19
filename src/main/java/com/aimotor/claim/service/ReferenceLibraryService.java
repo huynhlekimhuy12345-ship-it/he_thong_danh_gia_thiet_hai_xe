@@ -1,6 +1,10 @@
 package com.aimotor.claim.service;
 
+import com.aimotor.claim.model.ClaimAssessment;
+import com.aimotor.claim.model.CustomerVehicle;
 import com.aimotor.claim.model.ReferenceDamage;
+import com.aimotor.claim.repository.ClaimAssessmentRepository;
+import com.aimotor.claim.repository.CustomerVehicleRepository;
 import com.aimotor.claim.repository.ReferenceDamageRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,24 +12,35 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
-/** Quan ly Kho anh mau du tru: them/xoa/lay danh sach + nap anh gui Gemini. */
+/**
+ * Quan ly Kho anh mau du tru: them/xoa/lay danh sach + nap anh gui Gemini.
+ *
+ * Anh mau MOI chi vao kho bang 2 duong:
+ * (1) Tu ho so tham dinh cua khach: sau khi AI dinh gia xong, chu he thong bam
+ * "Luu vao kho mau" — toan bo anh + thong tin xe lien quan duoc luu lai de
+ * doi chieu cho cac vu tuong tu sau nay (ke ca khac loai xe).
+ * (2) Quet folder storage/reference-damages (anh chu he thong tu tha vao).
+ * KHONG them anh mau thu cong tung cai tren giao dien nua.
+ */
 @Service
 public class ReferenceLibraryService {
 
     private static final Logger log = LoggerFactory.getLogger(ReferenceLibraryService.class);
 
     private final ReferenceDamageRepository repository;
+    private final ClaimAssessmentRepository claimRepository;
+    private final CustomerVehicleRepository vehicleRepository;
     private final ImagePreprocessingService imageService;
     private final GeminiService geminiService;
     private final ObjectMapper objectMapper;
@@ -34,10 +49,14 @@ public class ReferenceLibraryService {
     private String referenceDir;
 
     public ReferenceLibraryService(ReferenceDamageRepository repository,
+                                   ClaimAssessmentRepository claimRepository,
+                                   CustomerVehicleRepository vehicleRepository,
                                    ImagePreprocessingService imageService,
                                    GeminiService geminiService,
                                    ObjectMapper objectMapper) {
         this.repository = repository;
+        this.claimRepository = claimRepository;
+        this.vehicleRepository = vehicleRepository;
         this.imageService = imageService;
         this.geminiService = geminiService;
         this.objectMapper = objectMapper;
@@ -47,22 +66,101 @@ public class ReferenceLibraryService {
         return repository.findAll();
     }
 
-    public ReferenceDamage add(String referenceId, String partName, int severityLevel,
-                               String severityLabel, String description, long standardPriceVnd,
-                               MultipartFile image) throws IOException {
-        if (repository.existsByReferenceId(referenceId)) {
-            throw new IllegalArgumentException("Ma mau " + referenceId + " da ton tai.");
+    /**
+     * Luu 1 ho so tham dinh da dinh gia vao Kho anh mau.
+     *
+     * Moi vet hu hai trong ho so thanh 1 anh mau: anh lay tu anh khach gui cua
+     * ho so (theo thu tu, xoay vong neu it anh hon vet), gia = chi phi AI uoc
+     * tinh cho vet do, mo ta ghi ro thong tin xe (loai xe, hang, dong, nam,
+     * mau) + tinh trang quan sat + ma ho so goc de doi soat. Muc do lay theo
+     * muc do cua anh mau ma AI doi chieu gan nhat (mac dinh Muc 2 neu khong co).
+     * Vet nao gia 0 thi luu o dang nhap (can bo sung gia sau).
+     * Anh goc duoc COPY sang storage/reference-damages/ de anh mau tu dung,
+     * khong phu thuoc vao thu muc ho so cua khach. Anh da co trong kho (trung
+     * noi dung, kiem tra bang SHA-256) thi bo qua, khong luu trung.
+     */
+    public List<ReferenceDamage> saveClaimToLibrary(String claimId) throws IOException {
+        ClaimAssessment claim = claimRepository.findById(claimId)
+                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay ho so " + claimId));
+        if (claim.getDamages() == null || claim.getDamages().isEmpty()) {
+            throw new IllegalStateException("Ho so nay khong co vet hu hai de luu vao kho mau.");
         }
-        imageService.validateImage(image);
-        String hash = sha256(image.getBytes());
-        if (repository.findAll().stream().anyMatch(r -> hash.equals(r.getImageHash()))) {
-            throw new IllegalArgumentException("Anh nay da co trong kho roi (trung noi dung voi 1 anh mau cu).");
+        List<String> photos = claim.getClaimPhotoPaths() == null ? List.of() : claim.getClaimPhotoPaths();
+        if (photos.isEmpty()) {
+            throw new IllegalStateException("Ho so nay khong co anh de luu vao kho mau.");
         }
-        String imagePath = imageService.storeFile(image, Paths.get(referenceDir));
-        ReferenceDamage ref = new ReferenceDamage(referenceId, partName, severityLevel,
-                severityLabel, description, standardPriceVnd, imagePath);
-        ref.setImageHash(hash);
-        return repository.save(ref);
+        CustomerVehicle vehicle = claim.getVehicleId() == null ? null
+                : vehicleRepository.findById(claim.getVehicleId()).orElse(null);
+        String vehicleInfo = vehicle == null
+                ? "Xe chua ro thong tin"
+                : (vehicle.getVehicleType() + " " + nullToEmpty(vehicle.getBrand()) + " "
+                   + nullToEmpty(vehicle.getModel())
+                   + (vehicle.getYear() == 0 ? "" : " " + vehicle.getYear())
+                   + " (mau " + vehicle.getColor() + ")").trim().replaceAll(" +", " ");
+        Files.createDirectories(Paths.get(referenceDir));
+        java.util.Set<String> knownHashes = repository.findAll().stream()
+                .map(ReferenceDamage::getImageHash)
+                .filter(h -> h != null)
+                .collect(java.util.stream.Collectors.toSet());
+        List<ReferenceDamage> saved = new ArrayList<>();
+        List<ClaimAssessment.DamageItem> damages = claim.getDamages();
+        for (int i = 0; i < damages.size(); i++) {
+            ClaimAssessment.DamageItem d = damages.get(i);
+            Path source = Paths.get(photos.get(i % photos.size()));
+            if (!Files.exists(source)) {
+                log.warn("Bo qua vet {} cua ho so {}: khong tim thay anh {}", d.getPartName(), claimId, source);
+                continue;
+            }
+            byte[] bytes = Files.readAllBytes(source);
+            String hash = sha256(bytes);
+            if (knownHashes.contains(hash)) {
+                log.info("Bo qua vet {} cua ho so {}: anh da co trong kho.", d.getPartName(), claimId);
+                continue;
+            }
+            String ext = "jpg";
+            String name = source.getFileName().toString();
+            int dot = name.lastIndexOf('.');
+            if (dot > 0 && dot < name.length() - 1) {
+                ext = name.substring(dot + 1).toLowerCase().replaceAll("[^a-z0-9]", "");
+                if (ext.isEmpty()) ext = "jpg";
+            }
+            String fileName = "ref-" + claim.getClaimId().toLowerCase() + "-" + (i + 1) + "." + ext;
+            Path target = Paths.get(referenceDir, fileName);
+            Files.copy(new java.io.ByteArrayInputStream(bytes), target, StandardCopyOption.REPLACE_EXISTING);
+            String imagePath = Paths.get(referenceDir, fileName).toString().replace("\\", "/");
+            if (imagePath.startsWith("./")) imagePath = imagePath.substring(2);
+
+            int severityLevel = 2;
+            if (d.getMatchedReferenceId() != null && !d.getMatchedReferenceId().isBlank()) {
+                severityLevel = repository.findByReferenceId(d.getMatchedReferenceId())
+                        .map(ReferenceDamage::getSeverityLevel).orElse(2);
+            }
+            String severityLabel = severityLevel == 1 ? "Mức 1: Xước nhẹ"
+                    : severityLevel == 2 ? "Mức 2: Móp vừa"
+                    : "Mức 3: Vỡ/Biến dạng nặng";
+            StringBuilder desc = new StringBuilder("Case thuc te — ").append(vehicleInfo)
+                    .append(": ").append(d.getObservedCondition() == null ? "" : d.getObservedCondition())
+                    .append(" (ho so ").append(claim.getClaimId())
+                    .append(", boi thuong de xuat ").append(d.getEstimatedCostVnd()).append(" VND).");
+            if (d.getReferenceComparisonNote() != null && !d.getReferenceComparisonNote().isBlank()) {
+                desc.append(" Doi chieu: ").append(d.getReferenceComparisonNote());
+            }
+            ReferenceDamage ref = new ReferenceDamage(
+                    nextReferenceId(), d.getPartName(), severityLevel, severityLabel,
+                    desc.toString(), d.getEstimatedCostVnd(), imagePath);
+            ref.setNeedsMetadata(d.getEstimatedCostVnd() <= 0);
+            ref.setImageHash(hash);
+            saved.add(repository.save(ref));
+            knownHashes.add(hash);
+        }
+        if (saved.isEmpty()) {
+            throw new IllegalStateException("Khong luu duoc anh mau nao (anh da co trong kho hoac thieu file anh).");
+        }
+        return saved;
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     /** SHA-256 noi dung file anh (hex, chu thuong). */

@@ -16,7 +16,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 /**
- * Seed Kho anh mau du tru khi MongoDB con trong.
+ * Seed Kho anh mau du tru khi SQLite con trong.
  * Anh mau nam trong ./storage/reference-damages/ (da kem san 4 anh test).
  * Muon them anh mau: copy file anh vao thu muc do roi bam "Quet folder" o tab
  * Kho anh mau, hoac them bang trang Quan tri — app cung tu quet moi lan khoi dong.

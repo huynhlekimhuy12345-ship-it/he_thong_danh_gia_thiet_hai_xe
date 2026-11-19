@@ -51,7 +51,7 @@ không trộn với nội dung đã xác minh.
   |---|---|---|
   | Ngôn ngữ | Java 17 | `pom.xml` (`java.version: 17`) |
   | Framework | Spring Boot 3.3.5 | `pom.xml` (parent 3.3.5) |
-  | Database vận hành | MongoDB | `pom.xml` (starter-data-mongodb); `application.properties` (`MONGODB_URI`, mặc định `mongodb://localhost:27017/aimotor_claim`) |
+  | Database vận hành | SQLite (1 file, không cần cài thêm database) | `pom.xml` (sqlite-jdbc); `application.properties` (`app.storage.main-db`, mặc định `./storage/aimotor.db`) |
   | Xử lý ảnh | Thumbnailator 0.4.20 | `pom.xml` |
   | Model AI | `gemini-3.8-flash` | `application.properties` (`gemini.model=gemini-3.8-flash`) |
   | Giao diện | 1 file HTML/CSS/JS, 5 tab (Thẩm định, Tra cứu bồi thường, Mua bảo hiểm, Kho ảnh mẫu, Cài đặt) | `src/main/resources/static/index.html` |
@@ -89,8 +89,8 @@ không trộn với nội dung đã xác minh.
   `index.html` (checklist ảnh gốc); `storage/vehicles/README.md`.
 - Biển số trùng (đã có hồ sơ) thì báo lỗi, không tạo trùng.
   Nguồn: code: `VehicleService.java` (`existsByLicensePlate`).
-- Hồ sơ xe lưu vào MongoDB, collection `customer_vehicles`.
-  Nguồn: code: `CustomerVehicle.java` (`@Document(collection = "customer_vehicles")`).
+- Hồ sơ xe lưu vào SQLite, bảng `customer_vehicles`.
+  Nguồn: code: `CustomerVehicleRepository.java` (JDBC); `DatabaseService.java` (tạo bảng).
 
 ### Bước 2 — Xác nhận xe gốc trước khi chụp ảnh hư hại (tab "Thẩm định")
 
@@ -214,9 +214,9 @@ không trộn với nội dung đã xác minh.
   MoMo: thiệt hại 8.000.000đ, miễn thường 500.000đ → bảo hiểm trả 7.500.000đ.
   Nguồn: code: `AppConfigService.java` (dòng 41, `.orElse(500_000L)`);
   web: https://www.momo.vn/bao-hiem-o-to/than-vo (mục miễn thường).
-- Kết quả lưu MongoDB, collection `claim_assessments`; tên chủ xe được copy từ
+- Kết quả lưu SQLite, bảng `claim_assessments`; tên chủ xe được copy từ
   hồ sơ gốc sang hồ sơ thẩm định để hiển thị.
-  Nguồn: code: `ClaimAssessment.java` (`@Document(collection = "claim_assessments")`);
+  Nguồn: code: `ClaimAssessmentRepository.java` (JDBC);
   `ClaimAssessmentService.java` (dòng 109, `setOwnerName`).
 - Kết quả chỉ là **mức đề xuất** — giám định viên chốt cuối cùng, nhất là khi
   có cảnh báo kiểm tra trực tiếp.
@@ -431,8 +431,8 @@ Nguồn: code: `src/main/resources/application.properties` (đọc ngày 19/11/2
 | Cấu hình | Giá trị | Ghi chú |
 |---|---|---|
 | Cổng chạy | 8080 | `server.port=8080` |
-| MongoDB | `mongodb://localhost:27017/aimotor_claim` (mặc định; đổi qua biến `MONGODB_URI`) | Chưa có MongoDB thì chạy local hoặc Atlas |
-| Gemini API key | Biến môi trường `GEMINI_API_KEY`, hoặc nhập ở tab Cài đặt (lưu MongoDB, ưu tiên cao nhất). **Không gửi key qua chat, không commit key lên git** | `gemini.api.key=${GEMINI_API_KEY:}` |
+| SQLite (database vận hành) | `./storage/aimotor.db` (1 file, app tự tạo 4 bảng khi khởi động) | Không cần cài thêm database; mở bằng DB Browser for SQLite |
+| Gemini API key | Biến môi trường `GEMINI_API_KEY`, hoặc nhập ở tab Cài đặt (lưu SQLite, ưu tiên cao nhất). **Không gửi key qua chat, không commit key lên git** | `gemini.api.key=${GEMINI_API_KEY:}` |
 | Model | `gemini-3.8-flash` | `gemini.model` |
 | Ảnh tối thiểu/hồ sơ | 2 ảnh | `app.assessment.min-photos=2` |
 | Kích thước file | Tối đa 10MB/ảnh; 100MB/request | `spring.servlet.multipart.*` |
@@ -485,7 +485,7 @@ Nguồn: code: `src/main/resources/application.properties` (đọc ngày 19/11/2
   biển số).
   Nguồn: code: `ClaimAssessmentService.java`; `AssessmentController.java`;
   `VehicleController.java`.
-- File này **chỉ ở máy chạy app**: không đưa lên MongoDB, không trả về qua API,
+- File này **chỉ ở máy chạy app**: không đưa lên database vận hành, không trả về qua API,
   không commit lên git (đã cho vào `.gitignore`).
   Nguồn: code: `.gitignore` (dòng `storage/verification-audit.db`).
 - Xem lại bằng DB Browser for SQLite:
@@ -496,9 +496,9 @@ Nguồn: code: `src/main/resources/application.properties` (đọc ngày 19/11/2
 
 ## 7. Lưu trữ dữ liệu
 
-### 7.1. MongoDB (database vận hành) — 4 collection
+### 7.1. SQLite (database vận hành) — 4 bảng, 1 file (`storage/aimotor.db`)
 
-| Collection | Nội dung | Nguồn |
+| Bảng | Nội dung | Nguồn |
 |---|---|---|
 | `customer_vehicles` | Hồ sơ xe gốc (tên + ngày sinh chủ xe, biển số, SĐT, loại xe, hãng/dòng/năm, màu, đường dẫn ảnh gốc) | code: `CustomerVehicle.java` |
 | `claim_assessments` | Hồ sơ thẩm định (mã hồ sơ, tên chủ xe, biển số, SĐT, kết quả AI, tổng tiền, miễn thường, thực nhận, đường dẫn ảnh thẩm định) | code: `ClaimAssessment.java` |
@@ -513,6 +513,7 @@ Nguồn: code: `src/main/resources/application.properties` (đọc ngày 19/11/2
 | `storage/vehicles/<BIỂN-SỐ>/` | Ảnh gốc xe lúc mua bảo hiểm | **Không** (ảnh thật của khách) |
 | `storage/claims/<MÃ-HỒ-SƠ>/` | Ảnh gốc khách gửi thẩm định | **Không** (ảnh thật của khách) |
 | `storage/verification-audit.db` | Nhật ký xác minh (SQLite, mục 6.3) | **Không** |
+| `storage/aimotor.db` | Database vận hành (4 bảng, mục 7.1) | **Không** (dữ liệu thật của khách) |
 
 Nguồn: code: `application.properties` (`app.storage.*`); `.gitignore`;
 `storage/vehicles/README.md`; `storage/claims/README.md`.
@@ -545,6 +546,7 @@ Nguồn: code: `AssessmentController.java`, `VehicleController.java`,
 | `GET /api/vehicles/confirm?licensePlate&customerPhone&vehicleType` | Xác nhận xe gốc trước khi chụp ảnh hư hại |
 | `GET /api/vehicles/photo/{vehicleId}/{index}` | Ảnh gốc của xe (theo id xe + số thứ tự, không lộ biển số trong URL) |
 | `POST /api/assessments` (multipart) | Gửi hồ sơ thẩm định: biển số + SĐT + loại xe + nhiều ảnh thiệt hại |
+| `POST /api/assessments/{id}/save-to-library` | Lưu hồ sơ đã thẩm định vào kho mẫu: mỗi vết → 1 ảnh mẫu (ảnh khách gửi + bộ phận + mức độ + giá ước tính + thông tin xe), để đối chiếu vụ tương tự sau này kể cả khác loại xe |
 | `GET /api/assessments` | Lịch sử thẩm định |
 | `GET /api/assessments/plate/{plate}` | Lịch sử theo biển số |
 | `GET /api/assessments/lookup?licensePlate&customerPhone&vehicleType` | Tra cứu tình trạng bồi thường |
@@ -565,14 +567,27 @@ bằng SHA-256 nội dung.
 Nguồn: code: `ReferenceLibraryService.java` (`scanFolder`); `DataSeeder.java`
 (tự quét lúc khởi động); `README.md`.
 
+Tính năng lưu hồ sơ vào kho mẫu: sau khi AI thẩm định + định giá xong 1 hồ
+sơ, bấm **"💾 Lưu vào kho mẫu"** ở kết quả thẩm định hoặc ở lịch sử → mỗi vết
+hư hại thành 1 ảnh mẫu: ảnh khách gửi của hồ sơ (copy sang
+`storage/reference-damages/`, tên `ref-<mã-hồ-sơ>-<n>.jpg`), bộ phận + mức độ
+(mức độ lấy theo ảnh mẫu AI đối chiếu gần nhất, mặc định Mức 2) + giá ước tính
+của vết đó + mô tả ghi rõ thông tin xe (loại xe, hãng, dòng, năm, màu) và mã
+hồ sơ gốc. Vết nào giá 0 thì lưu dạng nháp, cần bổ sung giá sau. Ảnh đã có
+trong kho (trùng SHA-256) thì bỏ qua, không lưu trùng. **Không thêm ảnh mẫu
+thủ công từng cái trên giao diện nữa** — nguồn ảnh mẫu mới là hồ sơ thẩm định
+của khách và folder quét.
+Nguồn: code: `ReferenceLibraryService.java` (`saveClaimToLibrary`);
+`AssessmentController.java` (`POST /api/assessments/{id}/save-to-library`).
+
 ---
 
 ## 9. Những gì CHƯA được kiểm chứng / giới hạn đã biết
 
 1. **Chưa biên dịch, chưa chạy lần nào** (mục 0). Lần chạy đầu tiên trên máy
-   người dùng (`mvn spring-boot:run`, cần JDK 17, Maven 3.9+, MongoDB local
-   hoặc Atlas, Gemini API key) là bước kiểm chứng còn thiếu. Nếu báo lỗi, gửi
-   log để sửa code.
+   người dùng (`mvn spring-boot:run`, cần JDK 17, Maven 3.9+, Gemini API key)
+   là bước kiểm chứng còn thiếu. Không cần cài thêm database (SQLite là 1 file,
+   app tự tạo). Nếu báo lỗi, gửi log để sửa code.
 2. **Mức độ 14 case MoMo do agent tự gán**, không phải dữ liệu MoMo công bố
    (mục 0, 3.3).
 3. **Giá trên ảnh mẫu là tổng tiền cả vụ**, không phải giá 1 vết (mục 3.3, 4.1).

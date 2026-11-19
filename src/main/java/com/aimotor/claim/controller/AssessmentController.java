@@ -2,6 +2,7 @@ package com.aimotor.claim.controller;
 
 import com.aimotor.claim.model.ClaimAssessment;
 import com.aimotor.claim.service.ClaimAssessmentService;
+import com.aimotor.claim.service.ReferenceLibraryService;
 import com.aimotor.claim.service.VehicleService;
 import com.aimotor.claim.service.VerificationAuditService;
 import org.springframework.http.HttpStatus;
@@ -21,13 +22,16 @@ public class AssessmentController {
 
     private final ClaimAssessmentService service;
     private final VehicleService vehicleService;
+    private final ReferenceLibraryService referenceService;
     private final VerificationAuditService auditService;
 
     public AssessmentController(ClaimAssessmentService service,
                                 VehicleService vehicleService,
+                                ReferenceLibraryService referenceService,
                                 VerificationAuditService auditService) {
         this.service = service;
         this.vehicleService = vehicleService;
+        this.referenceService = referenceService;
         this.auditService = auditService;
     }
 
@@ -48,6 +52,17 @@ public class AssessmentController {
     @GetMapping
     public List<ClaimAssessment> history() {
         return service.history();
+    }
+
+    /**
+     * Luu 1 ho so tham dinh da dinh gia vao Kho anh mau: moi vet hu hai thanh
+     * 1 anh mau (anh khach gui + bo phan + muc do + gia uoc tinh + thong tin
+     * xe). De AI doi chieu cho cac vu tuong tu sau nay, ke ca khac loai xe.
+     */
+    @PostMapping("/{id}/save-to-library")
+    public Map<String, Object> saveToLibrary(@PathVariable String id) throws Exception {
+        var saved = referenceService.saveClaimToLibrary(id);
+        return Map.of("saved", saved.size(), "references", saved);
     }
 
     @GetMapping("/plate/{plate}")
