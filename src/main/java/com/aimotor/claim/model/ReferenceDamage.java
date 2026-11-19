@@ -35,6 +35,13 @@ public class ReferenceDamage {
     /** Duong dan file anh mau, VD: storage/reference-damages/ref-01-bumper-scratch.jpg */
     private String imagePath;
 
+    /**
+     * true = anh tu dong quet tu folder, chua du metadata (bo phan/gia chuan).
+     * Anh nhap bi loai khoi request Gemini cho toi khi bo sung xong, tranh
+     * AI doi chieu voi anh mau gia 0 VND.
+     */
+    private boolean needsMetadata = false;
+
     private Instant createdAt = Instant.now();
 
     public ReferenceDamage() {
@@ -68,6 +75,8 @@ public class ReferenceDamage {
     public void setStandardPriceVnd(long standardPriceVnd) { this.standardPriceVnd = standardPriceVnd; }
     public String getImagePath() { return imagePath; }
     public void setImagePath(String imagePath) { this.imagePath = imagePath; }
+    public boolean isNeedsMetadata() { return needsMetadata; }
+    public void setNeedsMetadata(boolean needsMetadata) { this.needsMetadata = needsMetadata; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

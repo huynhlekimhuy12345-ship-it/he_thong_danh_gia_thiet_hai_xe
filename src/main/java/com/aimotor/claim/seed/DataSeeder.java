@@ -2,6 +2,7 @@ package com.aimotor.claim.seed;
 
 import com.aimotor.claim.model.ReferenceDamage;
 import com.aimotor.claim.repository.ReferenceDamageRepository;
+import com.aimotor.claim.service.ReferenceLibraryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,8 +18,8 @@ import java.util.List;
 /**
  * Seed Kho anh mau du tru khi MongoDB con trong.
  * Anh mau nam trong ./storage/reference-damages/ (da kem san 4 anh test).
- * Muon them anh mau: copy file anh vao thu muc do roi them bang trang Quan tri
- * (tab Kho anh mau) hoac them dong moi vao danh sach duoi day.
+ * Muon them anh mau: copy file anh vao thu muc do roi bam "Quet folder" o tab
+ * Kho anh mau, hoac them bang trang Quan tri — app cung tu quet moi lan khoi dong.
  */
 @Component
 @Order(1)
@@ -27,6 +28,7 @@ public class DataSeeder implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
 
     private final ReferenceDamageRepository repository;
+    private final ReferenceLibraryService referenceService;
 
     @Value("${app.storage.reference-dir:./storage/reference-damages}")
     private String referenceDir;
@@ -37,8 +39,9 @@ public class DataSeeder implements CommandLineRunner {
     @Value("${app.storage.claim-dir:./storage/claims}")
     private String claimDir;
 
-    public DataSeeder(ReferenceDamageRepository repository) {
+    public DataSeeder(ReferenceDamageRepository repository, ReferenceLibraryService referenceService) {
         this.repository = repository;
+        this.referenceService = referenceService;
     }
 
     @Override
@@ -47,11 +50,25 @@ public class DataSeeder implements CommandLineRunner {
         Files.createDirectories(Paths.get(vehicleDir));
         Files.createDirectories(Paths.get(claimDir));
 
-        if (repository.count() > 0) {
+        if (repository.count() == 0) {
+            seedInitialReferences();
+        } else {
             log.info("Kho anh mau da co {} anh, bo qua seed.", repository.count());
-            return;
         }
 
+        // Luon quet folder: anh nguoi dung tu tha vao folder se duoc nhan vao kho
+        // o dang nhap (can bo sung metadata sau).
+        try {
+            int imported = referenceService.scanFolder().size();
+            if (imported > 0) {
+                log.info("Tu dong nhan {} anh mau moi tu folder {}.", imported, referenceDir);
+            }
+        } catch (Exception e) {
+            log.warn("Khong quet duoc folder anh mau {}: {}", referenceDir, e.getMessage());
+        }
+    }
+
+    private void seedInitialReferences() {
         List<ReferenceDamage> seeds = List.of(
                 new ReferenceDamage("REF_01", "Can truoc", 1, "Muc 1: Xuoc nhe",
                         "Vet xuoc dai nhe tren lop son can truoc, khong mop, khong vo. Chi can son lai cuc bo.",

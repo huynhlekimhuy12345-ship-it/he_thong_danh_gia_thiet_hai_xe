@@ -198,7 +198,29 @@
         <div><label>Ảnh mẫu *</label><input id="r-image" type="file" accept="image/*"></div>
         <div><label>Mô tả chi tiết</label><input id="r-desc" placeholder="VD: Cản sau nứt dài 20cm..."></div>
       </div>
-      <div style="margin-top:16px"><button class="btn" id="btnAddRef">➕ Thêm vào kho mẫu</button></div>
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="btnAddRef">➕ Thêm vào kho mẫu</button>
+        <button class="btn ghost" id="btnScanRefs">🔄 Quét folder ảnh mẫu</button>
+      </div>
+      <p class="hint" style="margin-top:10px">Thả ảnh trực tiếp vào thư mục <b>storage/reference-damages/</b> rồi bấm <b>Quét folder</b> (app cũng tự quét mỗi lần khởi động) — ảnh mới vào kho ở dạng nháp, cần bổ sung bộ phận + giá chuẩn rồi mới dùng để thẩm định.</p>
+    </div>
+    <div class="card" id="editRefCard" style="display:none">
+      <h2>Bổ sung / sửa thông tin ảnh mẫu</h2>
+      <p class="hint">Ảnh quét từ folder đang ở dạng nháp (chưa có giá chuẩn) nên AI tạm thời chưa dùng. Điền đủ thông tin rồi lưu là ảnh được đưa vào thẩm định.</p>
+      <input type="hidden" id="e-id">
+      <div class="grid3">
+        <div><label>Mã mẫu</label><input id="e-refid" disabled></div>
+        <div><label>Bộ phận *</label><input id="e-part" placeholder="VD: Cản sau"></div>
+        <div><label>Mức độ *</label>
+          <select id="e-level"><option value="1">Mức 1: Xước nhẹ</option><option value="2">Mức 2: Móp vừa</option><option value="3">Mức 3: Vỡ/Biến dạng nặng</option></select>
+        </div>
+        <div><label>Giá chuẩn (VND) *</label><input id="e-price" type="number" placeholder="VD: 2500000"></div>
+        <div><label>Mô tả chi tiết</label><input id="e-desc" placeholder="VD: Cản sau nứt dài 20cm..."></div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn" id="btnSaveRef">💾 Lưu thông tin</button>
+        <button class="btn ghost" id="btnCancelEdit">Hủy</button>
+      </div>
     </div>
     <div class="refgrid" id="refGrid"><span class="muted">Đang tải…</span></div>
   </section>
@@ -427,9 +449,11 @@ async function loadRefs(){
     box.innerHTML = list.map(r=>'<div class="refcard"><img src="/api/references/'+r.id+'/image" alt="'+r.partName+'">'
       + '<div class="body"><b>'+r.referenceId+' · '+r.partName+'</b> '
       + '<span class="pill '+(r.severityLevel===1?'ok':r.severityLevel===2?'warn':'bad')+'">Mức '+r.severityLevel+'</span>'
+      + (r.needsMetadata?'<span class="pill warn" style="margin-left:5px">Cần bổ sung</span>':'')
       + '<p>'+(r.description||'')+'</p>'
-      + '<div class="row"><span class="money">'+fmt(r.standardPriceVnd)+'</span>'
-      + '<button class="btn danger" style="padding:7px 12px;font-size:12px" onclick="deleteRef(\''+r.id+'\')">Xóa</button></div></div></div>').join('');
+      + '<div class="row"><span class="money">'+(r.needsMetadata?'Chưa có giá':fmt(r.standardPriceVnd))+'</span>'
+      + '<span><button class="btn ghost" style="padding:7px 12px;font-size:12px;margin-right:6px" onclick="editRef(\''+r.id+'\')">✏️ Sửa</button>'
+      + '<button class="btn danger" style="padding:7px 12px;font-size:12px" onclick="deleteRef(\''+r.id+'\')">Xóa</button></span></div></div></div>').join('');
   }catch(e){ $('#refGrid').innerHTML = '<span class="muted">Không tải được kho mẫu: '+e.message+'</span>'; }
 }
 async function deleteRef(id){
@@ -456,6 +480,45 @@ $('#btnAddRef').addEventListener('click', async ()=>{
   }catch(e){ toast('Lỗi: ' + e.message); }
 });
 
+// ---------- Quet folder + sua anh mau ----------
+$('#btnScanRefs').addEventListener('click', async ()=>{
+  try{
+    const r = await api('/api/references/scan', {method:'POST'});
+    toast(r.imported ? ('Đã nhận ' + r.imported + ' ảnh mới từ folder — nhớ bổ sung bộ phận + giá chuẩn.') : 'Folder không có ảnh mới.');
+    loadRefs();
+  }catch(e){ toast('Lỗi quét folder: ' + e.message); }
+});
+async function editRef(id){
+  try{
+    const list = await api('/api/references');
+    const r = list.find(x=>x.id===id);
+    if(!r) return;
+    $('#e-id').value = r.id;
+    $('#e-refid').value = r.referenceId;
+    $('#e-part').value = r.partName === 'Chưa phân loại' ? '' : r.partName;
+    $('#e-level').value = String(r.severityLevel || 2);
+    $('#e-price').value = r.standardPriceVnd || '';
+    $('#e-desc').value = (r.description||'').startsWith('Ảnh tự quét từ folder') ? '' : (r.description||'');
+    $('#editRefCard').style.display = 'block';
+    $('#editRefCard').scrollIntoView({behavior:'smooth'});
+  }catch(e){ toast('Lỗi: ' + e.message); }
+}
+$('#btnCancelEdit').addEventListener('click', ()=>{ $('#editRefCard').style.display='none'; });
+$('#btnSaveRef').addEventListener('click', async ()=>{
+  const id = $('#e-id').value;
+  const level = parseInt($('#e-level').value);
+  const labels = {1:'Mức 1: Xước nhẹ', 2:'Mức 2: Móp vừa', 3:'Mức 3: Vỡ/Biến dạng nặng'};
+  const part = $('#e-part').value.trim();
+  const price = parseInt($('#e-price').value);
+  if(!part){ toast('Hãy nhập bộ phận.'); return; }
+  if(!price || price <= 0){ toast('Hãy nhập giá chuẩn (lớn hơn 0).'); return; }
+  try{
+    await api('/api/references/'+id, {method:'PUT', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({partName:part, severityLevel:level, severityLabel:labels[level], description:$('#e-desc').value.trim(), standardPriceVnd:price})});
+    toast('Đã lưu — ảnh mẫu đã sẵn sàng để thẩm định.');
+    $('#editRefCard').style.display='none'; loadRefs();
+  }catch(e){ toast('Lỗi: ' + e.message); }
+});
 loadConfig(); loadHistory(); loadVehicles(); loadRefs();
 </script>
 </body>

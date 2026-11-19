@@ -93,12 +93,23 @@ ai-motor-claim-assessor/
 > ⚠️ 4 ảnh mẫu là ảnh AI tạo ra để **test luồng ngay** — khi chạy thật, hãy thay bằng ảnh
 > thiệt hại thật (kèm giá sửa chữa thực tế) qua tab **Kho ảnh mẫu**.
 
+## Thêm ảnh mẫu bằng cách thả file vào folder
+
+Ngoài việc upload qua giao diện, có thể copy trực tiếp file ảnh (JPG/PNG/WebP) vào
+thư mục `storage/reference-damages/` rồi bấm nút **🔄 Quét folder ảnh mẫu** ở tab
+**Kho ảnh mẫu** (app cũng tự quét mỗi lần khởi động). Ảnh mới được nhận vào kho ở
+dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true` — ảnh nháp
+**tạm thời không được gửi cho AI** (tránh định giá 0 đồng). Bấm **✏️ Sửa** trên thẻ
+ảnh để bổ sung bộ phận + mức độ + giá chuẩn, lưu xong ảnh mới được đưa vào thẩm định.
+
 ## API chính
 
 | Method | Endpoint | Mô tả |
 |---|---|---|
 | GET | `/api/references` | Liệt kê kho ảnh mẫu |
 | POST | `/api/references` | Thêm ảnh mẫu (multipart: `image` + các trường metadata) |
+| POST | `/api/references/scan` | Quét folder `storage/reference-damages/` — ảnh mới vào kho dạng nháp |
+| PUT | `/api/references/{id}` | Bổ sung / sửa metadata ảnh mẫu (bộ phận, mức độ, giá chuẩn) |
 | GET | `/api/references/{id}/image` | Xem ảnh mẫu |
 | DELETE | `/api/references/{id}` | Xóa ảnh mẫu |
 | POST | `/api/vehicles` | Đăng ký hồ sơ xe + ảnh gốc (multipart) |

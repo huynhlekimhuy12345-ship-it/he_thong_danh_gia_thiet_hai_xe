@@ -68,4 +68,25 @@ public class ReferenceController {
         service.delete(id);
         return Map.of("deleted", true, "id", id);
     }
+
+    /**
+     * Quet thu muc storage/reference-damages: anh moi tha vao folder se duoc
+     * nhan vao kho o dang nhap (can bo sung metadata sau).
+     */
+    @PostMapping("/scan")
+    public Map<String, Object> scan() throws Exception {
+        var imported = service.scanFolder();
+        return Map.of("imported", imported.size(), "references", imported);
+    }
+
+    /** Bo sung / sua metadata cho anh mau (dung cho anh nhap sau khi quet folder). */
+    @PutMapping("/{id}")
+    public ReferenceDamage update(@PathVariable String id, @RequestBody Map<String, Object> body) {
+        String partName = (String) body.get("partName");
+        int severityLevel = body.get("severityLevel") == null ? 2 : ((Number) body.get("severityLevel")).intValue();
+        String severityLabel = (String) body.get("severityLabel");
+        String description = (String) body.get("description");
+        long price = body.get("standardPriceVnd") == null ? 0 : ((Number) body.get("standardPriceVnd")).longValue();
+        return service.update(id, partName, severityLevel, severityLabel, description, price);
+    }
 }
