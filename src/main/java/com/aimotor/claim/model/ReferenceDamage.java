@@ -42,6 +42,9 @@ public class ReferenceDamage {
      */
     private boolean needsMetadata = false;
 
+    /** SHA-256 noi dung file anh, dung de chan trung anh (cung anh, khac ten file). */
+    private String imageHash;
+
     private Instant createdAt = Instant.now();
 
     public ReferenceDamage() {
@@ -77,6 +80,8 @@ public class ReferenceDamage {
     public void setImagePath(String imagePath) { this.imagePath = imagePath; }
     public boolean isNeedsMetadata() { return needsMetadata; }
     public void setNeedsMetadata(boolean needsMetadata) { this.needsMetadata = needsMetadata; }
+    public String getImageHash() { return imageHash; }
+    public void setImageHash(String imageHash) { this.imageHash = imageHash; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

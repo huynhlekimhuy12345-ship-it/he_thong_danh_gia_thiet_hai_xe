@@ -10,7 +10,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 
 /** Quan ly Kho anh mau du tru: them/xoa/lay danh sach + nap anh gui Gemini. */
@@ -19,14 +21,17 @@ public class ReferenceLibraryService {
 
     private final ReferenceDamageRepository repository;
     private final ImagePreprocessingService imageService;
+    private final GeminiService geminiService;
 
     @Value("${app.storage.reference-dir:./storage/reference-damages}")
     private String referenceDir;
 
     public ReferenceLibraryService(ReferenceDamageRepository repository,
-                                   ImagePreprocessingService imageService) {
+                                   ImagePreprocessingService imageService,
+                                   GeminiService geminiService) {
         this.repository = repository;
         this.imageService = imageService;
+        this.geminiService = geminiService;
     }
 
     public List<ReferenceDamage> listAll() {
@@ -40,10 +45,24 @@ public class ReferenceLibraryService {
             throw new IllegalArgumentException("Ma mau " + referenceId + " da ton tai.");
         }
         imageService.validateImage(image);
+        String hash = sha256(image.getBytes());
+        if (repository.findAll().stream().anyMatch(r -> hash.equals(r.getImageHash()))) {
+            throw new IllegalArgumentException("Anh nay da co trong kho roi (trung noi dung voi 1 anh mau cu).");
+        }
         String imagePath = imageService.storeFile(image, Paths.get(referenceDir));
         ReferenceDamage ref = new ReferenceDamage(referenceId, partName, severityLevel,
                 severityLabel, description, standardPriceVnd, imagePath);
+        ref.setImageHash(hash);
         return repository.save(ref);
+    }
+
+    /** SHA-256 noi dung file anh (hex, chu thuong). */
+    private String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (Exception e) {
+            throw new IllegalStateException("Khong tinh duoc hash anh.", e);
+        }
     }
 
     public void delete(String id) {
@@ -68,6 +87,10 @@ public class ReferenceLibraryService {
         java.util.Set<String> knownPaths = repository.findAll().stream()
                 .map(ReferenceDamage::getImagePath)
                 .collect(java.util.stream.Collectors.toSet());
+        java.util.Set<String> knownHashes = repository.findAll().stream()
+                .map(ReferenceDamage::getImageHash)
+                .filter(h -> h != null)
+                .collect(java.util.stream.Collectors.toSet());
         List<ReferenceDamage> imported = new ArrayList<>();
         try (var stream = Files.list(dir)) {
             List<Path> files = stream
@@ -85,14 +108,21 @@ public class ReferenceLibraryService {
                 if (knownPaths.contains(rel) || knownPaths.contains(normalized)) {
                     continue;
                 }
+                // Cung anh nhung khac ten file -> bo qua (chan trung noi dung).
+                String hash = sha256(Files.readAllBytes(file));
+                if (knownHashes.contains(hash)) {
+                    continue;
+                }
                 ReferenceDamage ref = new ReferenceDamage(
                         nextReferenceId(),
                         "Chưa phân loại", 2, "Mức 2: Móp vừa",
                         "Ảnh tự quét từ folder — cần bổ sung bộ phận, mức độ và giá chuẩn trước khi dùng để thẩm định.",
                         0, normalized);
                 ref.setNeedsMetadata(true);
+                ref.setImageHash(hash);
                 imported.add(repository.save(ref));
                 knownPaths.add(normalized);
+                knownHashes.add(hash);
             }
         }
         return imported;
@@ -125,6 +155,18 @@ public class ReferenceLibraryService {
         ref.setStandardPriceVnd(standardPriceVnd);
         ref.setNeedsMetadata(false);
         return repository.save(ref);
+    }
+
+    /** Goi y gia chuan cho 1 anh mau (thuong la anh nhap) dua tren anh mau cu da co gia. */
+    public GeminiService.PriceSuggestion suggestPriceFor(String id) throws IOException {
+        ReferenceDamage ref = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay anh mau " + id));
+        List<GeminiService.ReferencePayload> payloads = loadPayloads();
+        if (payloads.isEmpty()) {
+            throw new IllegalStateException("Chua co anh mau cu nao co gia chuan de doi chieu.");
+        }
+        String newImageBase64 = imageService.fileToBase64(Paths.get(ref.getImagePath()));
+        return geminiService.suggestPrice(newImageBase64, payloads);
     }
 
     /** Nap toan bo anh mau (resize + Base64) de gui kem trong 1 request Gemini. */

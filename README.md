@@ -110,6 +110,7 @@ dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true
 | POST | `/api/references` | Thêm ảnh mẫu (multipart: `image` + các trường metadata) |
 | POST | `/api/references/scan` | Quét folder `storage/reference-damages/` — ảnh mới vào kho dạng nháp |
 | PUT | `/api/references/{id}` | Bổ sung / sửa metadata ảnh mẫu (bộ phận, mức độ, giá chuẩn) |
+| POST | `/api/references/{id}/suggest-price` | Gemini gợi ý giá chuẩn cho ảnh mẫu mới theo ảnh mẫu cũ |
 | GET | `/api/references/{id}/image` | Xem ảnh mẫu |
 | DELETE | `/api/references/{id}` | Xóa ảnh mẫu |
 | POST | `/api/vehicles` | Đăng ký hồ sơ xe + ảnh gốc (multipart) |
@@ -119,6 +120,7 @@ dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true
 | GET | `/api/assessments` | Lịch sử thẩm định |
 | GET | `/api/assessments/plate/{plate}` | Lịch sử theo biển số |
 | GET / POST | `/api/config`, `/api/config/gemini-key` | Xem / lưu Gemini API key |
+| GET / POST | `/api/config/deductible` | Xem / lưu mức miễn thường (VND/vụ) |
 
 ## JSON kết quả thẩm định (AI trả về)
 
@@ -141,10 +143,16 @@ dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true
     }
   ],
   "totalCompensationVnd": 1500000,
+  "deductibleVnd": 500000,
+  "netCompensationVnd": 1000000,
   "requiresHumanReview": false,
   "humanReviewReason": ""
 }
 ```
+
+`totalCompensationVnd` là tổng thiệt hại ước tính; hệ thống tự trừ mức miễn
+thường (`deductibleVnd`, mặc định 500.000đ/vụ) để ra `netCompensationVnd` —
+số bồi thường thực nhận đề xuất. Xem mục Mức giá tham chiếu (MoMo) bên dưới.
 
 `validation.status` có 3 giá trị: `OK` (đủ điều kiện), `NEEDS_MORE_INFO`
 (thiếu/mờ/sai ảnh — kèm danh sách cần bổ sung), `REJECTED` (không phải xe / sai xe).
@@ -155,9 +163,37 @@ dạng **nháp** với mã `REF_xx` tự tăng, gắn cờ `needsMetadata = true
   `requiresHumanReview = true` hoặc độ tin cậy thấp.
 - **Bảo mật:** API key không bao giờ commit lên git. Ảnh khách hàng được gửi lên
   Google Gemini API để phân tích — cần có sự đồng ý của khách hàng trong quy trình thật.
-- **Bộ ảnh tối thiểu** để AI đánh giá tốt: 4 góc ngoại thất + khoang trước + khoang sau
-  + cốp + biển số/VIN + cận cảnh từng vết. Thiếu ảnh → AI trả về danh sách cần bổ sung
-  thay vì đoán mò (nguyên tắc: thiếu ảnh = thiếu căn cứ).
+- **Bộ ảnh tối thiểu** để AI đánh giá tốt: 4 góc ngoại thất + cốp + biển số/VIN
+  + cận cảnh từng vết. **Không cần chụp nội thất.** Thiếu ảnh → AI trả về danh sách
+  cần bổ sung thay vì đoán mò (nguyên tắc: thiếu ảnh = thiếu căn cứ).
 - **Chưa biên dịch trên máy agent** (máy agent không có Java/Maven). Code viết theo đúng
   chuẩn Spring Boot 3.3.5 / Java 17; nếu `mvn spring-boot:run` báo lỗi, copy toàn bộ
   log lỗi gửi lại để sửa.
+
+## Mức giá tham chiếu (nguồn MoMo — Bảo hiểm thân vỏ ô tô)
+
+Nguồn: https://www.momo.vn/bao-hiem-o-to/than-vo (truy cập 19/11/2026).
+
+> ⚠️ Lưu ý thẳng thắn: trang MoMo là bài viết về **bảo hiểm thân vỏ**, KHÔNG có
+> ảnh chụp thiệt hại theo từng bộ phận và KHÔNG có bảng giá sửa chữa theo món.
+> 2 ảnh infographic trên trang là bảng phí bảo hiểm theo giá trị xe và công thức
+> tính phí — đó là **phí bảo hiểm/năm, không phải giá sửa xe** — nên KHÔNG đưa
+> vào kho ảnh mẫu (đưa ảnh quảng cáo vào làm mẫu sẽ làm AI đối chiếu sai).
+> Những gì lấy được từ trang này và đã đưa vào app:
+
+| Hạng mục | Giá trị tham chiếu | Dùng trong app |
+|---|---|---|
+| Mức miễn thường | 500.000–2.000.000đ/vụ | Ô **Mức miễn thường** ở tab Cài đặt (mặc định 500.000đ/vụ, đặt 0 nếu hợp đồng không có). Hệ thống tự trừ khỏi tổng thiệt hại: thực nhận = max(0, tổng − miễn thường). VD trên trang: thiệt hại 8.000.000đ, miễn thường 500.000đ → hãng trả 7.500.000đ |
+| Va quẹt nhỏ | 2–3 triệu đồng | Neo giá trong system prompt của Gemini (vượt xa khoảng thì phải giải thích + chuyển giám định viên) |
+| Va chạm nặng | 30–80 triệu đồng | Như trên |
+| Thủy kích (ngập nước động cơ) | 20–60 triệu đồng (VD thực tế: Kia Seltos 2024 — 42.000.000đ) | Như trên |
+| Phí bảo hiểm thân vỏ | 1,4%–2,0%/năm giá trị xe (VD: xe 800tr → phí từ 8tr/năm) | Chỉ để tham khảo, KHÔNG dùng để định giá thiệt hại |
+
+## Gợi ý giá cho ảnh mẫu mới
+
+Ảnh mẫu mới (thả vào folder rồi quét, hoặc upload) chưa có giá chuẩn: vào tab
+**Kho ảnh mẫu** → bấm **✏️ Sửa** → **🤖 Gợi ý giá theo ảnh cũ**. Gemini sẽ so
+ảnh mới với các ảnh mẫu cũ đã có giá, trả về mẫu tương đương nhất + giá đề xuất
++ độ giống nhau — kiểm tra rồi bấm **Lưu** mới đưa vào kho chính thức. Nếu không
+có ảnh cũ nào tương đương, hệ thống báo rõ và KHÔNG đoán giá. Ảnh trùng nội dung
+(cùng ảnh, khác tên file) sẽ bị chặn ngay lúc quét/upload nhờ mã SHA-256.

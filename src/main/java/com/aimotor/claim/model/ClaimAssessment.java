@@ -36,6 +36,12 @@ public class ClaimAssessment {
 
     private long totalCompensationVnd;
 
+    /** Muc mien thuong da tru (VND/vu, theo cau hinh luc tham dinh). */
+    private long deductibleVnd;
+
+    /** So tien boi thuong thuc nhan de xuat = max(0, tong thiet hai - mien thuong). */
+    private long netCompensationVnd;
+
     private boolean requiresHumanReview;
     private String humanReviewReason;
 
@@ -114,6 +120,10 @@ public class ClaimAssessment {
     public void setDamages(List<DamageItem> damages) { this.damages = damages; }
     public long getTotalCompensationVnd() { return totalCompensationVnd; }
     public void setTotalCompensationVnd(long totalCompensationVnd) { this.totalCompensationVnd = totalCompensationVnd; }
+    public long getDeductibleVnd() { return deductibleVnd; }
+    public void setDeductibleVnd(long deductibleVnd) { this.deductibleVnd = deductibleVnd; }
+    public long getNetCompensationVnd() { return netCompensationVnd; }
+    public void setNetCompensationVnd(long netCompensationVnd) { this.netCompensationVnd = netCompensationVnd; }
     public boolean isRequiresHumanReview() { return requiresHumanReview; }
     public void setRequiresHumanReview(boolean requiresHumanReview) { this.requiresHumanReview = requiresHumanReview; }
     public String getHumanReviewReason() { return humanReviewReason; }

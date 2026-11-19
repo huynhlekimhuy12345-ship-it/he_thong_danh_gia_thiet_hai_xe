@@ -36,7 +36,8 @@ public class ConfigController {
                 // Chi hien 4 ky tu cuoi de nguoi dung biet key nao dang dung, khong lo key.
                 "apiKeyHint", (key != null && key.length() > 4) ? "****" + key.substring(key.length() - 4) : "",
                 "apiKeyFromProperties", apiKeyProperty != null && !apiKeyProperty.isBlank(),
-                "defaultModel", modelProperty);
+                "defaultModel", modelProperty,
+                "deductibleVnd", appConfigService.getDeductibleVnd());
     }
 
     @PostMapping("/gemini-key")
@@ -48,5 +49,14 @@ public class ConfigController {
         }
         AppConfig saved = appConfigService.save(apiKey, model);
         return Map.of("saved", true, "model", saved.getModel() != null ? saved.getModel() : modelProperty);
+    }
+
+    /** Luu muc mien thuong (VND/vu) tru vao boi thuong. */
+    @PostMapping("/deductible")
+    public Map<String, Object> saveDeductible(@RequestBody Map<String, Object> body) {
+        long deductible = body.get("deductibleVnd") == null
+                ? 500_000L : ((Number) body.get("deductibleVnd")).longValue();
+        AppConfig saved = appConfigService.saveDeductible(deductible);
+        return Map.of("saved", true, "deductibleVnd", saved.getDeductibleVnd());
     }
 }

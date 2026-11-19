@@ -33,4 +33,18 @@ public class AppConfigService {
     public boolean isConfigured() {
         return find().map(c -> c.getApiKey() != null && !c.getApiKey().isBlank()).orElse(false);
     }
+
+    /** Muc mien thuong (VND/vu). Chua dat thi mac dinh 500.000d (tham chieu MoMo). */
+    public long getDeductibleVnd() {
+        return find().map(AppConfig::getDeductibleVnd)
+                .filter(d -> d != null && d >= 0)
+                .orElse(500_000L);
+    }
+
+    public AppConfig saveDeductible(long deductibleVnd) {
+        AppConfig config = repository.findById(GEMINI_CONFIG_ID)
+                .orElse(new AppConfig(GEMINI_CONFIG_ID, null, null));
+        config.setDeductibleVnd(Math.max(0, deductibleVnd));
+        return repository.save(config);
+    }
 }

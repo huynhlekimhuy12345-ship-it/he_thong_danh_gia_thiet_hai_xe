@@ -141,6 +141,105 @@ public class GeminiService {
         }
     }
 
+    /** Ket qua goi y gia cho 1 anh mau moi dua tren anh mau cu da co gia chuan. */
+    public record PriceSuggestion(String matchedReferenceId, String partName, int severityLevel,
+                                  long suggestedPriceVnd, double confidenceScore, String reason) {
+    }
+
+    /**
+     * Goi y gia chuan cho 1 anh mau moi: Gemini so anh moi voi kho anh mau cu
+     * (chi anh da co gia chuan) va chon mau tuong duong nhat ve bo phan + loai
+     * hu hai + muc do. Khong co mau tuong duong -> matchedReferenceId rong,
+     * suggestedPriceVnd = 0, KHONG doan gia.
+     */
+    public PriceSuggestion suggestPrice(String newImageBase64, List<ReferencePayload> references) {
+        String apiKey = resolveApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("Chua cau hinh Gemini API key. "
+                    + "Dat bien moi truong GEMINI_API_KEY hoac nhap key o tab Cai dat.");
+        }
+        if (references == null || references.isEmpty()) {
+            throw new IllegalStateException("Chua co anh mau cu nao co gia chuan de doi chieu.");
+        }
+        String model = resolveModel();
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("system_instruction", Map.of("parts", List.of(Map.of("text",
+                "Ban la chuyen gia dinh gia sua chua xe. Cho 1 ANH MOI (chua co gia) va KHO ANH MAU CU da co gia chuan, "
+                        + "hay tim anh mau giong nhat ve bo phan + loai hu hai + muc do. Tra loi HOAN TOAN bang tieng Viet, "
+                        + "chi theo dung JSON schema da cho. Neu khong co anh mau nao tuong duong (khac bo phan hoac khac loai hu hai), "
+                        + "tra matchedReferenceId = \"\", suggestedPriceVnd = 0, confidenceScore = 0 va giai thich ly do. "
+                        + "KHONG duoc doan gia khi khong co mau tuong duong. confidenceScore: 0.0-1.0."))));
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Map.of("text", "KHO ANH MAU CU (da co gia chuan):"));
+        for (ReferencePayload ref : references) {
+            ReferenceDamage r = ref.reference();
+            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia chuan %,d VND] Mo ta: %s",
+                    r.getReferenceId(), r.getPartName(), r.getSeverityLevel(),
+                    r.getSeverityLabel(), r.getStandardPriceVnd(), r.getDescription());
+            parts.add(Map.of("text", label));
+            parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", ref.base64Jpeg())));
+        }
+        parts.add(Map.of("text", "[ANH MOI CAN DINH GIA]"));
+        parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", newImageBase64)));
+        body.put("contents", List.of(Map.of("parts", parts)));
+        Map<String, Object> generationConfig = new LinkedHashMap<>();
+        generationConfig.put("temperature", 0.2);
+        generationConfig.put("responseMimeType", "application/json");
+        generationConfig.put("responseSchema", buildSuggestionSchema());
+        body.put("generationConfig", generationConfig);
+
+        String url = apiBaseUrl + "/" + model + ":generateContent";
+        String raw;
+        try {
+            raw = restClient.post()
+                    .uri(url)
+                    .header("x-goog-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(String.class);
+        } catch (RestClientResponseException e) {
+            log.error("Gemini API loi {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new GeminiException("Gemini API tra loi " + e.getStatusCode()
+                    + ". Kiem tra API key / model / han muc. Chi tiet: " + e.getResponseBodyAsString(), e);
+        }
+        if (raw == null || raw.isBlank()) {
+            throw new GeminiException("Gemini tra ve phan hoi rong.");
+        }
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            JsonNode error = root.get("error");
+            if (error != null) {
+                throw new GeminiException("Gemini API bao loi: " + error.path("message").asText());
+            }
+            String text = root.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText(null);
+            if (text == null || text.isBlank()) {
+                throw new GeminiException("Gemini khong tra ve noi dung goi y gia.");
+            }
+            return objectMapper.readValue(stripCodeFences(text), PriceSuggestion.class);
+        } catch (GeminiException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Khong phan tich duoc JSON goi y gia tu Gemini: {}", raw, e);
+            throw new GeminiException("Khong phan tich duoc ket qua JSON goi y gia tu Gemini.", e);
+        }
+    }
+
+    private Map<String, Object> buildSuggestionSchema() {
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("type", "OBJECT");
+        schema.put("properties", Map.of(
+                "matchedReferenceId", Map.of("type", "STRING"),
+                "partName", Map.of("type", "STRING"),
+                "severityLevel", Map.of("type", "INTEGER"),
+                "suggestedPriceVnd", Map.of("type", "NUMBER"),
+                "confidenceScore", Map.of("type", "NUMBER"),
+                "reason", Map.of("type", "STRING")));
+        schema.put("required", List.of("matchedReferenceId", "suggestedPriceVnd", "reason"));
+        return schema;
+    }
+
     private String stripCodeFences(String text) {
         String t = text.trim();
         if (t.startsWith("```")) {
@@ -203,7 +302,8 @@ public class GeminiService {
         sb.append("BUOC 1 - KIEM TRA HOP LE (VALIDATION GATE, lam truoc moi thu, phai PHAN BIEN thang than):\n");
         sb.append("a) Anh co phai la anh o to khong? Neu co anh khong phai o to (nguoi, nha cua, do vat, anh mang...), validation.status = REJECTED.\n");
         sb.append("b) Anh co du net de nhan dien khong? Anh mo, toi, choi sang, chup qua xa hoac rung tay khong thay ro vet hu hai -> validation.status = NEEDS_MORE_INFO, ghi ro anh so may va van de.\n");
-        sb.append("c) Anh co du de danh gia khong? Bo anh toi thieu: 4 goc ngoai that (truoc, sau, suon trai, suon phai) + khoang truoc + khoang sau + cop + bien so/VIN + can canh tung vet. Thieu goc nao thi liet ke vao missingPhotos va validation.status = NEEDS_MORE_INFO.\n");
+        sb.append("c) Anh co du de danh gia khong? Bo anh toi thieu: 4 goc ngoai that (truoc, sau, suon trai, suon phai) + cop + bien so/VIN + can canh tung vet. "
+                + "KHONG can anh noi that. Thieu goc nao thi liet ke vao missingPhotos va validation.status = NEEDS_MORE_INFO.\n");
         sb.append("d) Dung xe khong? So mau xe, loai xe, bien so trong anh khach voi thong tin xe goc va anh goc. Khac mau, khac loai xe, bien so khac -> validation.status = REJECTED, ghi ly do.\n");
         sb.append("e) Vet hu hai da co san trong ANH GOC thi KHONG phai thiet hai moi: khong tinh tien cho vet do, ghi chu trong assessmentSummary.\n");
         sb.append("Neu validation.status != OK: damages = [], totalCompensationVnd = 0, requiresHumanReview = false (tru REJECTED thi ghi ro ly do tu choi). "
@@ -218,6 +318,10 @@ public class GeminiService {
                 + "dat requiresHumanReview = true va ghi ro humanReviewReason de giam dinh vien kiem tra truc tiep.\n");
         sb.append("4) confidenceScore: 0.0-1.0 theo do ro rang cua vet tren anh. Vet mo hoac chi thay lo mo thi ha diem manh tay.\n");
         sb.append("5) totalCompensationVnd = tong estimatedCostVnd cua cac vet (sau khi da gop trung lap).\n");
+        sb.append("6) GIA THAM CHIEU THI TRUONG (MoMo, bao hiem than vo): va quet nho khoang 2-3 trieu dong, va cham nang 30-80 trieu dong, "
+                + "thuy kich 20-60 trieu dong. Neu uoc luong vuot xa khoang nay thi giai thich ro trong referenceComparisonNote "
+                + "va dat requiresHumanReview = true. He thong se tu tru muc mien thuong sau khi nhan ket qua, "
+                + "Gemini chi can bao gia tong thiet hai goc.\n");
         return sb.toString();
     }
 

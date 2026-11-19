@@ -124,7 +124,7 @@
 
     <div class="card">
       <h2>2 · Ảnh xe bị thiệt hại</h2>
-      <p class="hint">Kéo-thả nhiều ảnh, chọn nhiều file, hoặc chọn cả thư mục ảnh. Bộ ảnh tối thiểu: 4 góc ngoại thất + khoang trước + khoang sau + cốp + biển số + cận cảnh từng vết.</p>
+      <p class="hint">Kéo-thả nhiều ảnh, chọn nhiều file, hoặc chọn cả thư mục ảnh. Bộ ảnh tối thiểu: 4 góc ngoại thất + cốp + biển số + cận cảnh từng vết. (Không cần chụp nội thất.)</p>
       <div class="dropzone" id="dropzone">
         <b>📸 Thả ảnh vào đây hoặc bấm để chọn</b>
         <p>Hỗ trợ JPG / PNG · tối đa 10MB/ảnh · AI sẽ tự resize về 1024px trước khi gửi Gemini</p>
@@ -139,8 +139,6 @@
       <div class="thumbs" id="thumbs"></div>
       <div class="checklist" style="margin-top:16px">
         <div><b>☐</b> Góc trước · Góc sau · Sườn trái · Sườn phải</div>
-        <div><b>☐</b> Khoang ghế trước (táp-lô, vô lăng, ghế)</div>
-        <div><b>☐</b> Khoang ghế sau (hàng ghế sau, cửa sau)</div>
         <div><b>☐</b> Cốp xe · Biển số / VIN · Cận cảnh từng vết</div>
       </div>
       <div style="margin-top:18px">
@@ -217,10 +215,12 @@
         <div><label>Giá chuẩn (VND) *</label><input id="e-price" type="number" placeholder="VD: 2500000"></div>
         <div><label>Mô tả chi tiết</label><input id="e-desc" placeholder="VD: Cản sau nứt dài 20cm..."></div>
       </div>
-      <div style="margin-top:16px;display:flex;gap:10px">
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn" id="btnSaveRef">💾 Lưu thông tin</button>
+        <button class="btn ghost" id="btnSuggestPrice">🤖 Gợi ý giá theo ảnh cũ</button>
         <button class="btn ghost" id="btnCancelEdit">Hủy</button>
       </div>
+      <p class="hint" id="suggestNote" style="margin-top:10px"></p>
     </div>
     <div class="refgrid" id="refGrid"><span class="muted">Đang tải…</span></div>
   </section>
@@ -236,6 +236,14 @@
       </div>
       <div style="margin-top:16px"><button class="btn" id="btnSaveKey">💾 Lưu API key</button></div>
       <p class="hint" id="cfgStatus" style="margin-top:14px"></p>
+    </div>
+    <div class="card">
+      <h2>Mức miễn thường</h2>
+      <p class="hint">Khoản tiền khách tự chịu mỗi vụ (theo MoMo: thị trường VN thường 500.000–2.000.000đ/vụ). Hệ thống tự trừ mức này khỏi tổng thiệt hại khi ra số bồi thường thực nhận. Đặt 0 nếu hợp đồng không có miễn thường.</p>
+      <div class="grid2">
+        <div><label>Mức miễn thường (VND/vụ)</label><input id="cfg-deductible" type="number" placeholder="500000"></div>
+      </div>
+      <div style="margin-top:16px"><button class="btn" id="btnSaveDeductible">💾 Lưu mức miễn thường</button></div>
     </div>
     <div class="card">
       <h2>Hướng dẫn nhanh</h2>
@@ -288,8 +296,17 @@ async function loadConfig(){
     else { badge.textContent = '⚠️ Chưa có Gemini API key'; badge.classList.remove('ok'); }
     $('#cfgStatus').textContent = c.apiKeyConfigured ? ('Đã cấu hình model ' + c.model + ' ' + (c.apiKeyHint||'') + (c.apiKeyFromProperties ? ' (từ biến môi trường).' : ' (lưu trong MongoDB).')) : 'Chưa cấu hình API key — hãy nhập key ở trên hoặc đặt biến môi trường GEMINI_API_KEY.';
     $('#cfg-model').value = c.model || 'gemini-3.8-flash';
+    $('#cfg-deductible').value = (c.deductibleVnd!=null && c.deductibleVnd!==undefined) ? c.deductibleVnd : 500000;
   }catch(e){ $('#keyBadge').textContent = '⚠️ Không kết nối được server'; }
 }
+$('#btnSaveDeductible').addEventListener('click', async ()=>{
+  const v = parseInt($('#cfg-deductible').value);
+  if(isNaN(v) || v < 0){ toast('Mức miễn thường phải là số ≥ 0.'); return; }
+  try{
+    await api('/api/config/deductible', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({deductibleVnd:v})});
+    toast('Đã lưu mức miễn thường ' + fmt(v) + '/vụ.');
+  }catch(e){ toast('Lỗi: ' + e.message); }
+});
 $('#btnSaveKey').addEventListener('click', async ()=>{
   const apiKey = $('#cfg-key').value.trim();
   const model = $('#cfg-model').value.trim() || 'gemini-3.8-flash';
@@ -389,7 +406,12 @@ function renderResult(r){
         + '<td>'+Math.round((d.confidenceScore||0)*100)+'%</td></tr>';
     }
     html += '</tbody></table>';
-    html += '<div class="total"><span>TỔNG BỒI THƯỜNG ĐỀ XUẤT</span><b>'+fmt(r.totalCompensationVnd)+'</b></div>';
+    const ded = r.deductibleVnd||0;
+    const net = (r.netCompensationVnd!=null && r.netCompensationVnd!==undefined) ? r.netCompensationVnd : r.totalCompensationVnd;
+    html += '<div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">'
+      + '<div style="display:flex;justify-content:space-between;font-size:14px"><span>Tổng thiệt hại ước tính</span><b>'+fmt(r.totalCompensationVnd)+'</b></div>'
+      + '<div style="display:flex;justify-content:space-between;font-size:14px;margin-top:6px"><span>Trừ mức miễn thường</span><b>− '+fmt(ded)+'</b></div></div>'
+      + '<div class="total"><span>BỒI THƯỜNG THỰC NHẬN (ĐỀ XUẤT)</span><b>'+fmt(net)+'</b></div>';
   }
   if(r.requiresHumanReview){
     html += '<div class="banner warn" style="margin-top:14px"><b>👨‍🔧 Cần giám định viên kiểm tra trực tiếp.</b><br>' + (r.humanReviewReason||'') + '</div>';
@@ -405,10 +427,10 @@ async function loadHistory(){
     const list = await api('/api/assessments');
     const box = $('#history');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có hồ sơ nào.</span>'; return; }
-    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Biển số</th><th>Trạng thái</th><th>Tổng đề xuất</th><th>Giám định viên</th></tr></thead><tbody>'
+    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th></tr></thead><tbody>'
       + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+r.licensePlate+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
-        + '</td><td class="money">'+fmt(r.totalCompensationVnd||0)+'</td><td>'
+        + '</td><td class="money">'+fmt((r.netCompensationVnd!=null&&r.netCompensationVnd!==undefined)?r.netCompensationVnd:(r.totalCompensationVnd||0))+'</td><td>'
         + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra</span>':'<span class="muted">Không cần</span>')+'</td></tr>').join('')
       + '</tbody></table>';
   }catch(e){ $('#history').innerHTML = '<span class="muted">Không tải được lịch sử: '+e.message+'</span>'; }
@@ -504,6 +526,24 @@ async function editRef(id){
   }catch(e){ toast('Lỗi: ' + e.message); }
 }
 $('#btnCancelEdit').addEventListener('click', ()=>{ $('#editRefCard').style.display='none'; });
+$('#btnSuggestPrice').addEventListener('click', async ()=>{
+  const id = $('#e-id').value;
+  if(!id) return;
+  const note = $('#suggestNote');
+  note.textContent = 'Đang so sánh với ảnh mẫu cũ…';
+  try{
+    const s = await api('/api/references/'+id+'/suggest-price', {method:'POST'});
+    if(!s.matchedReferenceId){
+      note.textContent = '⚠️ ' + (s.reason||'Không tìm thấy ảnh mẫu cũ tương đương — hãy nhập giá thủ công.');
+      return;
+    }
+    $('#e-part').value = s.partName||$('#e-part').value;
+    $('#e-level').value = String(s.severityLevel||2);
+    $('#e-price').value = s.suggestedPriceVnd||'';
+    note.textContent = '💡 Gợi ý từ ' + s.matchedReferenceId + ' (' + Math.round((s.confidenceScore||0)*100) + '% giống): ' + fmt(s.suggestedPriceVnd) + ' — ' + (s.reason||'');
+    toast('Đã điền giá gợi ý — kiểm tra rồi bấm Lưu.');
+  }catch(e){ note.textContent = 'Lỗi gợi ý giá: ' + e.message; }
+});
 $('#btnSaveRef').addEventListener('click', async ()=>{
   const id = $('#e-id').value;
   const level = parseInt($('#e-level').value);

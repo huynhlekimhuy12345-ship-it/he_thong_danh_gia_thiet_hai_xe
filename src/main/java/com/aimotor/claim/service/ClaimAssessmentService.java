@@ -35,6 +35,7 @@ public class ClaimAssessmentService {
     private final ImageSharpnessService sharpnessService;
     private final GeminiService geminiService;
     private final ClaimAssessmentRepository repository;
+    private final AppConfigService appConfigService;
 
     @Value("${app.assessment.min-photos:2}")
     private int minPhotos;
@@ -44,13 +45,15 @@ public class ClaimAssessmentService {
                                   ImagePreprocessingService imageService,
                                   ImageSharpnessService sharpnessService,
                                   GeminiService geminiService,
-                                  ClaimAssessmentRepository repository) {
+                                  ClaimAssessmentRepository repository,
+                                  AppConfigService appConfigService) {
         this.vehicleService = vehicleService;
         this.referenceService = referenceService;
         this.imageService = imageService;
         this.sharpnessService = sharpnessService;
         this.geminiService = geminiService;
         this.repository = repository;
+        this.appConfigService = appConfigService;
     }
 
     public ClaimAssessment assess(String licensePlate, String customerPhone, String vehicleType,
@@ -96,14 +99,14 @@ public class ClaimAssessmentService {
         // ---- Buoc 2: kiem tra anh dau vao ----
         if (photos == null || photos.length == 0) {
             return saveRejected(assessment, "NEEDS_MORE_INFO",
-                    List.of("Chua co anh nao duoc gui len. Hay chup theo checklist: 4 goc ngoai that, khoang truoc, khoang sau, cop, bien so va can canh tung vet."),
-                    List.of("Anh toan xe 4 goc", "Anh khoang truoc", "Anh khoang sau", "Anh cop", "Anh bien so", "Anh can canh vet hu hai"));
+                    List.of("Chua co anh nao duoc gui len. Hay chup theo checklist: 4 goc ngoai that, cop, bien so va can canh tung vet."),
+                    List.of("Anh toan xe 4 goc", "Anh cop", "Anh bien so", "Anh can canh vet hu hai"));
         }
         if (photos.length < minPhotos) {
             return saveRejected(assessment, "NEEDS_MORE_INFO",
                     List.of("Chi co " + photos.length + " anh, can it nhat " + minPhotos
                             + " anh de danh gia. Hay bo sung theo checklist."),
-                    List.of("Anh toan xe 4 goc", "Anh khoang truoc", "Anh khoang sau", "Anh can canh vet hu hai"));
+                    List.of("Anh toan xe 4 goc", "Anh cop", "Anh can canh vet hu hai"));
         }
         List<String> customerBase64 = new ArrayList<>();
         List<String> blurryHints = new ArrayList<>();
@@ -161,7 +164,11 @@ public class ClaimAssessmentService {
         }
         assessment.setDamages(damages);
         // Tong tien = tong cac vet sau khi gop trung lap (tin tong tu Gemini chi khi khop).
+        // Tru muc mien thuong (mac dinh 500.000d/vu, tham chieu MoMo): so thuc nhan = max(0, tong - mien thuong).
+        long deductible = "OK".equals(status) ? appConfigService.getDeductibleVnd() : 0;
         assessment.setTotalCompensationVnd("OK".equals(status) ? total : 0);
+        assessment.setDeductibleVnd(deductible);
+        assessment.setNetCompensationVnd("OK".equals(status) ? Math.max(0, total - deductible) : 0);
         return repository.save(assessment);
     }
 
@@ -172,6 +179,8 @@ public class ClaimAssessmentService {
         assessment.setMissingPhotos(missingPhotos);
         assessment.setDamages(List.of());
         assessment.setTotalCompensationVnd(0);
+        assessment.setDeductibleVnd(0);
+        assessment.setNetCompensationVnd(0);
         assessment.setRequiresHumanReview(false);
         assessment.setHumanReviewReason("");
         assessment.setAssessmentSummary(status.equals("REJECTED")

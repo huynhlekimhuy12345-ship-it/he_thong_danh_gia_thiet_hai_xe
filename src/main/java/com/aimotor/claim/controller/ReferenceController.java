@@ -1,6 +1,7 @@
 package com.aimotor.claim.controller;
 
 import com.aimotor.claim.model.ReferenceDamage;
+import com.aimotor.claim.service.GeminiService;
 import com.aimotor.claim.service.ReferenceLibraryService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -88,5 +89,15 @@ public class ReferenceController {
         String description = (String) body.get("description");
         long price = body.get("standardPriceVnd") == null ? 0 : ((Number) body.get("standardPriceVnd")).longValue();
         return service.update(id, partName, severityLevel, severityLabel, description, price);
+    }
+
+    /**
+     * Goi y gia chuan cho 1 anh mau moi: Gemini so anh nay voi anh mau cu da co
+     * gia va tra ve mau tuong duong nhat + gia de xuat. Nguoi dung kiem tra roi
+     * bam Luu moi dua vao kho chinh thuc.
+     */
+    @PostMapping("/{id}/suggest-price")
+    public GeminiService.PriceSuggestion suggestPrice(@PathVariable String id) throws Exception {
+        return service.suggestPriceFor(id);
     }
 }

@@ -15,6 +15,13 @@ public class AppConfig {
 
     private String model;
 
+    /**
+     * Muc mien thuong (VND/vu) tru vao tong boi thuong truoc khi tra tien.
+     * Tham chieu MoMo: thi truong VN thuong 500.000-2.000.000d/vu. Null = chua
+     * dat, dung mac dinh 500.000d. Dat 0 = hop dong khong co mien thuong.
+     */
+    private Long deductibleVnd;
+
     public AppConfig() {
     }
 
@@ -30,4 +37,6 @@ public class AppConfig {
     public void setApiKey(String apiKey) { this.apiKey = apiKey; }
     public String getModel() { return model; }
     public void setModel(String model) { this.model = model; }
+    public Long getDeductibleVnd() { return deductibleVnd; }
+    public void setDeductibleVnd(Long deductibleVnd) { this.deductibleVnd = deductibleVnd; }
 }
