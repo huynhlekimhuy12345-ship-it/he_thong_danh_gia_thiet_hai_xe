@@ -40,13 +40,67 @@ public class VehicleService {
         return phone.replaceAll("[^0-9]", "");
     }
 
-    public CustomerVehicle register(String licensePlate, String customerPhone, String vehicleType,
+    /** Che bien so khi hien thi: giu 3 ky tu dau + 2 ky tu cuoi, giua thay bang *. VD: 30A12345 -> 30A***45. */
+    public static String maskPlate(String plate) {
+        String p = normalizePlate(plate);
+        if (p.isEmpty()) return "";
+        if (p.length() <= 2) return "*".repeat(p.length());
+        if (p.length() <= 5) return p.charAt(0) + "*".repeat(p.length() - 2) + p.charAt(p.length() - 1);
+        return p.substring(0, 3) + "*".repeat(p.length() - 5) + p.substring(p.length() - 2);
+    }
+
+    /** Che SDT khi hien thi: giu 3 so dau + 2 so cuoi. VD: 0901234567 -> 090*****67. */
+    public static String maskPhone(String phone) {
+        String p = normalizePhone(phone);
+        if (p.isEmpty()) return "";
+        if (p.length() <= 2) return "*".repeat(p.length());
+        if (p.length() <= 5) return p.charAt(0) + "*".repeat(p.length() - 2) + p.charAt(p.length() - 1);
+        return p.substring(0, 3) + "*".repeat(p.length() - 5) + p.substring(p.length() - 2);
+    }
+
+    /** Ket qua kiem tra danh tinh: tung muc khop hay khong + xe goc neu tim thay. */
+    public record IdentityResult(boolean plateMatch, boolean phoneMatch, boolean typeMatch,
+                                 CustomerVehicle vehicle) {
+        public boolean passed() { return plateMatch && phoneMatch && typeMatch; }
+    }
+
+    /** Kiem tra danh tinh: dung bien so + dung SDT + dung loai xe moi khop. */
+    public IdentityResult checkIdentity(String licensePlate, String customerPhone, String vehicleType) {
+        String plate = normalizePlate(licensePlate);
+        String phone = normalizePhone(customerPhone);
+        var vehicleOpt = findByPlate(plate);
+        boolean plateMatch = vehicleOpt.isPresent();
+        boolean phoneMatch = vehicleOpt.map(v -> phone.equals(v.getCustomerPhone())).orElse(false);
+        boolean typeMatch = vehicleOpt.map(v -> vehicleType != null
+                && v.getVehicleType().equalsIgnoreCase(vehicleType.trim())).orElse(false);
+        return new IdentityResult(plateMatch, phoneMatch, typeMatch, vehicleOpt.orElse(null));
+    }
+
+    /** Ban sao chi de hien thi: bien so + SDT da che, cac truong khac giu nguyen. */
+    public static CustomerVehicle maskedCopy(CustomerVehicle v) {
+        CustomerVehicle c = new CustomerVehicle();
+        c.setId(v.getId());
+        c.setOwnerName(v.getOwnerName());
+        c.setLicensePlate(maskPlate(v.getLicensePlate()));
+        c.setCustomerPhone(maskPhone(v.getCustomerPhone()));
+        c.setVehicleType(v.getVehicleType());
+        c.setBrand(v.getBrand());
+        c.setModel(v.getModel());
+        c.setYear(v.getYear());
+        c.setColor(v.getColor());
+        c.setBaselinePhotoPaths(v.getBaselinePhotoPaths());
+        c.setCreatedAt(v.getCreatedAt());
+        return c;
+    }
+
+    public CustomerVehicle register(String ownerName, String licensePlate, String customerPhone, String vehicleType,
                                     String brand, String model, int year, String color,
                                     MultipartFile[] baselinePhotos) throws IOException {
         String plate = normalizePlate(licensePlate);
         String phone = normalizePhone(customerPhone);
-        if (plate.isBlank() || phone.isBlank() || vehicleType == null || vehicleType.isBlank()) {
-            throw new IllegalArgumentException("Thieu bien so, SDT hoac loai xe.");
+        if (ownerName == null || ownerName.isBlank() || plate.isBlank() || phone.isBlank()
+                || vehicleType == null || vehicleType.isBlank()) {
+            throw new IllegalArgumentException("Thieu ten chu xe, bien so, SDT hoac loai xe.");
         }
         if (repository.existsByLicensePlate(plate)) {
             throw new IllegalArgumentException("Bien so " + plate + " da co ho so xe. Dung chuc nang cap nhat hoac dung bien so khac.");
@@ -61,6 +115,7 @@ public class VehicleService {
             }
         }
         CustomerVehicle vehicle = new CustomerVehicle();
+        vehicle.setOwnerName(ownerName.trim());
         vehicle.setLicensePlate(plate);
         vehicle.setCustomerPhone(phone);
         vehicle.setVehicleType(vehicleType.trim());
@@ -74,6 +129,11 @@ public class VehicleService {
 
     public Optional<CustomerVehicle> findByPlate(String licensePlate) {
         return repository.findByLicensePlate(normalizePlate(licensePlate));
+    }
+
+    public Optional<CustomerVehicle> findById(String id) {
+        if (id == null) return Optional.empty();
+        return repository.findById(id);
     }
 
     public List<CustomerVehicle> listAll() {

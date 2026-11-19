@@ -308,6 +308,7 @@ public class GeminiService {
 
         sb.append("BUOC 1 - KIEM TRA HOP LE (VALIDATION GATE, lam truoc moi thu, phai PHAN BIEN thang than):\n");
         sb.append("a) Anh co phai la anh o to khong? Neu co anh khong phai o to (nguoi, nha cua, do vat, anh mang...), validation.status = REJECTED.\n");
+        sb.append("a2) Anh chup giay to tuy than (CCCD/CMND, giay phep lai xe, giay dang ky xe) thi validation.status = REJECTED: he thong KHONG thu thap CCCD/CMND, khong can anh giay to. Bien so trong anh chi dung de doi chieu danh tinh, khong hien thi lai trong ket qua.\n");
         sb.append("b) Anh co du net de nhan dien khong? Anh mo, toi, choi sang, chup qua xa hoac rung tay khong thay ro vet hu hai -> validation.status = NEEDS_MORE_INFO, ghi ro anh so may va van de.\n");
         sb.append("c) Anh co du de danh gia khong? Bo anh toi thieu: 4 goc ngoai that (truoc, sau, suon trai, suon phai) + cop + bien so/VIN + can canh tung vet. "
                 + "KHONG can anh noi that. Thieu goc nao thi liet ke vao missingPhotos va validation.status = NEEDS_MORE_INFO.\n");

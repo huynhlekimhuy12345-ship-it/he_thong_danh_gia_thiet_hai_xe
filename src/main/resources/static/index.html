@@ -100,7 +100,8 @@
 
   <div class="tabs">
     <button class="tab active" data-tab="assess">🔍 Thẩm định</button>
-    <button class="tab" data-tab="vehicle">🚙 Hồ sơ xe</button>
+    <button class="tab" data-tab="lookup">📋 Tra cứu bồi thường</button>
+    <button class="tab" data-tab="vehicle">🛡️ Mua bảo hiểm</button>
     <button class="tab" data-tab="refs">🗂️ Kho ảnh mẫu</button>
     <button class="tab" data-tab="settings">⚙️ Cài đặt</button>
   </div>
@@ -109,7 +110,7 @@
   <section class="panel active" id="panel-assess">
     <div class="card">
       <h2>1 · Thông tin xe cần thẩm định</h2>
-      <p class="hint">Xe phải có hồ sơ gốc đã đăng ký (đúng biển số + đúng SĐT + đúng loại xe) thì mới được thẩm định. Ảnh gốc của xe sẽ được gửi kèm cho AI đối chiếu.</p>
+      <p class="hint">Nhập đúng biển số + SĐT + loại xe đã đăng ký khi mua bảo hiểm. Hệ thống sẽ hiện xe gốc (thông tin + ảnh gốc) để bạn xác nhận đúng xe của mình, rồi mới cho chụp ảnh hư hại.</p>
       <div class="grid3">
         <div><label>Biển số xe *</label><input id="plate" placeholder="VD: 51H-12345"></div>
         <div><label>Số điện thoại khách hàng *</label><input id="phone" placeholder="VD: 0901234567"></div>
@@ -120,8 +121,14 @@
           </select>
         </div>
       </div>
+      <div style="margin-top:16px">
+        <button class="btn" id="btnFindVehicle">🔎 Tìm xe của tôi</button>
+        <span class="muted" style="margin-left:10px">Biển số và SĐT chỉ dùng để đối chiếu, luôn hiển thị dạng che (VD: 51H***45).</span>
+      </div>
+      <div id="confirmBox" style="margin-top:16px"></div>
     </div>
 
+    <div id="photoSection" style="display:none">
     <div class="card">
       <h2>2 · Ảnh xe bị thiệt hại</h2>
       <p class="hint">Kéo-thả nhiều ảnh, chọn nhiều file, hoặc chọn cả thư mục ảnh. Bộ ảnh tối thiểu: 4 góc ngoại thất + cốp + biển số + cận cảnh từng vết. (Không cần chụp nội thất.)</p>
@@ -146,6 +153,7 @@
         <span class="muted" id="assessHint" style="margin-left:10px"></span>
       </div>
     </div>
+    </div>
 
     <div id="result"></div>
 
@@ -156,12 +164,33 @@
     </div>
   </section>
 
+  <!-- ============ TAB TRA CUU BOI THUONG ============ -->
+  <section class="panel" id="panel-lookup">
+    <div class="card">
+      <h2>Tra cứu tình trạng bồi thường</h2>
+      <p class="hint">Nhập đúng biển số + loại xe + SĐT đã đăng ký khi mua bảo hiểm để xem tình trạng bồi thường của xe mình. Sai thông tin sẽ không xem được — biển số và SĐT luôn hiển thị dạng che.</p>
+      <div class="grid3">
+        <div><label>Biển số xe *</label><input id="lk-plate" placeholder="VD: 51H-12345"></div>
+        <div><label>Số điện thoại *</label><input id="lk-phone" placeholder="VD: 0901234567"></div>
+        <div><label>Loại xe *</label>
+          <select id="lk-type">
+            <option>Sedan</option><option>SUV</option><option>Hatchback</option>
+            <option>Bán tải</option><option>MPV</option><option>Khác</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:16px"><button class="btn" id="btnLookup">📋 Xem tình trạng bồi thường</button></div>
+      <div id="lookupResult" style="margin-top:16px"></div>
+    </div>
+  </section>
+
   <!-- ============ TAB HO SO XE ============ -->
   <section class="panel" id="panel-vehicle">
     <div class="card">
-      <h2>Đăng ký hồ sơ xe gốc</h2>
-      <p class="hint">Lưu ảnh xe ban đầu (lúc mua bảo hiểm) vào hồ sơ của khách hàng: biển số, SĐT, loại xe, màu xe. Khi có thiệt hại, AI sẽ đối chiếu ảnh mới với ảnh gốc này để loại vết cũ và xác minh đúng xe.</p>
+      <h2>Mua bảo hiểm — Đăng ký hồ sơ xe gốc</h2>
+      <p class="hint">Bước đầu tiên khi mua bảo hiểm: ghi đầy đủ thông tin chủ xe + xe, và chụp ảnh toàn bộ xe lúc còn nguyên vẹn (ảnh gốc). Sau này xe bị hư hại, AI sẽ đối chiếu ảnh mới với ảnh gốc này để loại vết cũ và xác minh đúng xe.</p>
       <div class="grid2">
+        <div><label>Tên chủ xe *</label><input id="v-owner" placeholder="VD: Nguyễn Văn A"></div>
         <div><label>Biển số xe *</label><input id="v-plate" placeholder="VD: 51H-12345"></div>
         <div><label>Số điện thoại *</label><input id="v-phone" placeholder="VD: 0901234567"></div>
         <div><label>Loại xe *</label>
@@ -172,6 +201,10 @@
         <div><label>Dòng xe</label><input id="v-model" placeholder="VD: Vios"></div>
         <div><label>Năm sản xuất</label><input id="v-year" type="number" placeholder="VD: 2022"></div>
         <div><label>Ảnh gốc của xe (nhiều ảnh)</label><input id="v-photos" type="file" accept="image/*" multiple></div>
+      </div>
+      <div class="checklist" style="margin-top:16px">
+        <div><b>☐</b> Ảnh toàn xe ban đầu: góc trước · góc sau · sườn trái · sườn phải</div>
+        <div><b>☐</b> Biển số / VIN · Cốp xe · (khuyến nghị) cận cảnh các vết xước cũ nếu có</div>
       </div>
       <div style="margin-top:16px"><button class="btn" id="btnRegister">💾 Lưu hồ sơ xe</button></div>
     </div>
@@ -249,10 +282,11 @@
       <h2>Hướng dẫn nhanh</h2>
       <p class="hint" style="line-height:1.8">
         1️⃣ Vào tab <b>Cài đặt</b> nhập Gemini API key.<br>
-        2️⃣ Vào tab <b>Hồ sơ xe</b> đăng ký xe + ảnh gốc lúc mua bảo hiểm.<br>
-        3️⃣ Khi xe bị hư hại, vào tab <b>Thẩm định</b>, nhập đúng biển số + SĐT + loại xe, tải ảnh thiệt hại lên và gửi.<br>
-        4️⃣ AI sẽ phản biện nếu ảnh mờ, không phải xe, thiếu góc hoặc sai xe — bổ sung ảnh theo yêu cầu rồi gửi lại.<br>
-        5️⃣ Kết quả chỉ là <b>mức đề xuất</b> — giám định viên chốt cuối cùng, nhất là khi có cảnh báo kiểm tra trực tiếp.
+        2️⃣ Khi mua bảo hiểm, vào tab <b>Mua bảo hiểm</b>: ghi đầy đủ thông tin chủ xe + xe, chụp ảnh toàn bộ xe lúc còn nguyên vẹn.<br>
+        3️⃣ Khi xe bị hư hại, vào tab <b>Thẩm định</b>: nhập biển số + SĐT + loại xe đã đăng ký, bấm "Tìm xe của tôi", xác nhận đúng xe gốc, rồi mới chụp ảnh hư hại và gửi.<br>
+        4️⃣ Muốn xem tình trạng bồi thường: vào tab <b>Tra cứu bồi thường</b>, nhập biển số + loại xe + SĐT.<br>
+        5️⃣ AI sẽ phản biện nếu ảnh mờ, không phải xe, thiếu góc hoặc sai xe — bổ sung ảnh theo yêu cầu rồi gửi lại.<br>
+        6️⃣ Kết quả chỉ là <b>mức đề xuất</b> — giám định viên chốt cuối cùng, nhất là khi có cảnh báo kiểm tra trực tiếp.
       </p>
     </div>
   </section>
@@ -275,6 +309,24 @@ async function api(path, opts={}){
   let data; try{ data = JSON.parse(text); }catch{ data = {error:text}; }
   if(!res.ok) throw new Error(data.error || ('Lỗi HTTP ' + res.status));
   return data;
+}
+
+// ---------- Che thong tin nhay cam khi hien thi ----------
+// Bien so: giu 3 ky tu dau + 2 ky tu cuoi (51H12345 -> 51H***45). SDT: giu 3 so dau + 2 so cuoi.
+// He thong KHONG thu thap CCCD/CMND; bien so + SDT chi dung de doi chieu danh tinh.
+function maskPlate(p){
+  const s = String(p||'').toUpperCase().replace(/[\s.\-]/g,'');
+  if(!s) return '';
+  if(s.length <= 2) return '*'.repeat(s.length);
+  if(s.length <= 5) return s[0] + '*'.repeat(s.length-2) + s[s.length-1];
+  return s.slice(0,3) + '*'.repeat(s.length-5) + s.slice(-2);
+}
+function maskPhone(p){
+  const s = String(p||'').replace(/[^0-9]/g,'');
+  if(!s) return '';
+  if(s.length <= 2) return '*'.repeat(s.length);
+  if(s.length <= 5) return s[0] + '*'.repeat(s.length-2) + s[s.length-1];
+  return s.slice(0,3) + '*'.repeat(s.length-5) + s.slice(-2);
 }
 
 // ---------- Tabs ----------
@@ -350,10 +402,53 @@ function renderThumbs(){
   $('#assessHint').textContent = selectedFiles.length ? ('Đã chọn ' + selectedFiles.length + ' ảnh') : '';
 }
 
+// ---------- Xac nhan xe goc truoc khi chup anh hu hai ----------
+let confirmedVehicle = null;
+$('#btnFindVehicle').addEventListener('click', async ()=>{
+  const plate = $('#plate').value.trim(), phone = $('#phone').value.trim(), vtype = $('#vtype').value;
+  if(!plate || !phone){ toast('Nhập biển số và SĐT trước.'); return; }
+  const box = $('#confirmBox');
+  box.innerHTML = '<span class="muted">Đang tìm xe…</span>';
+  try{
+    const v = await api('/api/vehicles/confirm?licensePlate='+encodeURIComponent(plate)+'&customerPhone='+encodeURIComponent(phone)+'&vehicleType='+encodeURIComponent(vtype));
+    let html = '<div class="card" style="margin:0"><div class="banner ok"><b>✅ Tìm thấy xe của bạn — hãy xác nhận đúng xe trước khi chụp ảnh hư hại.</b></div>'
+      + '<p style="margin:12px 0 4px"><b>'+(v.ownerName||'—')+'</b> · Biển số: <b>'+maskPlate(v.licensePlate)+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
+      + '<br>Màu: '+v.color+' · SĐT: '+maskPhone(v.customerPhone)+' · Đăng ký ngày: '+(v.registeredAt?new Date(v.registeredAt).toLocaleDateString('vi-VN'):'—')+'</p>';
+    if(v.baselinePhotoUrls && v.baselinePhotoUrls.length){
+      html += '<p class="hint">Ảnh gốc lúc mua bảo hiểm ('+v.baselinePhotoUrls.length+' ảnh):</p><div class="thumbs">'
+        + v.baselinePhotoUrls.map(u=>'<img src="'+u+'" style="width:120px;height:90px;object-fit:cover;border-radius:8px">').join('') + '</div>';
+    } else {
+      html += '<p class="hint">Xe này chưa có ảnh gốc.</p>';
+    }
+    html += '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">'
+      + '<button class="btn" id="btnConfirmVehicle">✅ Đúng xe của tôi — chụp ảnh hư hại</button>'
+      + '<button class="btn ghost" id="btnResetVehicle">↩️ Không phải xe này</button></div></div>';
+    box.innerHTML = html;
+    $('#btnConfirmVehicle').addEventListener('click', ()=>{
+      confirmedVehicle = v;
+      $('#plate').disabled = true; $('#phone').disabled = true; $('#vtype').disabled = true; $('#btnFindVehicle').disabled = true;
+      box.innerHTML = '<div class="banner ok"><b>✅ Đã xác nhận xe: '+(v.ownerName||'')+' · '+maskPlate(v.licensePlate)+'.</b> <a href="#" id="lnkChangeVehicle">Đổi xe</a></div>';
+      $('#lnkChangeVehicle').addEventListener('click', e=>{ e.preventDefault(); resetVehicleConfirm(); });
+      $('#photoSection').style.display = 'block';
+      $('#photoSection').scrollIntoView({behavior:'smooth'});
+    });
+    $('#btnResetVehicle').addEventListener('click', ()=>{ resetVehicleConfirm(); });
+  }catch(e){
+    box.innerHTML = '<div class="banner bad"><b>Không tìm thấy xe.</b><br>' + e.message + '</div>';
+  }
+});
+function resetVehicleConfirm(){
+  confirmedVehicle = null;
+  $('#plate').disabled = false; $('#phone').disabled = false; $('#vtype').disabled = false; $('#btnFindVehicle').disabled = false;
+  $('#confirmBox').innerHTML = '';
+  $('#photoSection').style.display = 'none';
+}
+
 // ---------- Gui tham dinh ----------
 $('#btnAssess').addEventListener('click', async ()=>{
   const plate = $('#plate').value.trim(), phone = $('#phone').value.trim(), vtype = $('#vtype').value;
   if(!plate || !phone){ toast('Nhập biển số và SĐT trước.'); return; }
+  if(!confirmedVehicle){ toast('Hãy bấm "Tìm xe của tôi" và xác nhận đúng xe gốc trước.'); return; }
   if(!selectedFiles.length){ toast('Hãy chọn ít nhất 2 ảnh thiệt hại.'); return; }
   const btn = $('#btnAssess');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> AI đang thẩm định…';
@@ -377,7 +472,7 @@ function renderResult(r){
   let bannerCls = 'ok', bannerTitle = '✅ Ảnh hợp lệ — AI đã thẩm định xong.';
   if(v === 'NEEDS_MORE_INFO'){ bannerCls='warn'; bannerTitle='⚠️ Cần bổ sung thêm ảnh / thông tin.'; }
   if(v === 'REJECTED'){ bannerCls='bad'; bannerTitle='⛔ Hồ sơ bị từ chối.'; }
-  let html = '<div class="card"><div class="banner '+bannerCls+'"><b>'+bannerTitle+'</b><br><span class="muted">Mã hồ sơ: '+r.claimId+' · Biển số: '+r.licensePlate+'</span>';
+  let html = '<div class="card"><div class="banner '+bannerCls+'"><b>'+bannerTitle+'</b><br><span class="muted">Mã hồ sơ: '+r.claimId+' · Biển số: '+maskPlate(r.licensePlate)+'</span>';
   if(r.validationIssues && r.validationIssues.length){
     html += '<ul>' + r.validationIssues.map(i=>'<li>'+i+'</li>').join('') + '</ul>';
   }
@@ -428,7 +523,7 @@ async function loadHistory(){
     const box = $('#history');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có hồ sơ nào.</span>'; return; }
     box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th></tr></thead><tbody>'
-      + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+r.licensePlate+'</td><td>'
+      + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
         + '</td><td class="money">'+fmt((r.netCompensationVnd!=null&&r.netCompensationVnd!==undefined)?r.netCompensationVnd:(r.totalCompensationVnd||0))+'</td><td>'
         + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra</span>':'<span class="muted">Không cần</span>')+'</td></tr>').join('')
@@ -436,9 +531,31 @@ async function loadHistory(){
   }catch(e){ $('#history').innerHTML = '<span class="muted">Không tải được lịch sử: '+e.message+'</span>'; }
 }
 
+// ---------- Tra cuu tinh trang boi thuong ----------
+$('#btnLookup').addEventListener('click', async ()=>{
+  const plate = $('#lk-plate').value.trim(), phone = $('#lk-phone').value.trim(), vtype = $('#lk-type').value;
+  const box = $('#lookupResult');
+  if(!plate || !phone){ toast('Nhập biển số và SĐT trước.'); return; }
+  box.innerHTML = '<span class="muted">Đang tra cứu…</span>';
+  try{
+    const list = await api('/api/assessments/lookup?licensePlate='+encodeURIComponent(plate)+'&customerPhone='+encodeURIComponent(phone)+'&vehicleType='+encodeURIComponent(vtype));
+    if(!list.length){ box.innerHTML = '<span class="muted">Xe này chưa có hồ sơ bồi thường nào.</span>'; return; }
+    box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Biển số</th><th>Trạng thái</th><th>Tổng thiệt hại</th><th>Miễn thường</th><th>Bồi thường thực nhận</th><th>Giám định viên</th><th>Ngày gửi</th></tr></thead><tbody>'
+      + list.map(r=>'<tr><td>'+r.claimId+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
+        + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
+        + '</td><td class="money">'+fmt(r.totalCompensationVnd||0)+'</td><td class="money">'+fmt(r.deductibleVnd||0)+'</td><td class="money">'+fmt(r.netCompensationVnd||0)+'</td><td>'
+        + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra'+(r.humanReviewReason?' — '+r.humanReviewReason:'')+'</span>':'<span class="muted">Không cần</span>')
+        + '</td><td>'+(r.createdAt?new Date(r.createdAt).toLocaleDateString('vi-VN'):'—')+'</td></tr>').join('')
+      + '</tbody></table>';
+  }catch(e){
+    box.innerHTML = '<div class="banner bad"><b>Không tra cứu được.</b><br>' + e.message + '</div>';
+  }
+});
+
 // ---------- Ho so xe ----------
 $('#btnRegister').addEventListener('click', async ()=>{
   const fd = new FormData();
+  fd.append('ownerName', $('#v-owner').value.trim());
   fd.append('licensePlate', $('#v-plate').value.trim());
   fd.append('customerPhone', $('#v-phone').value.trim());
   fd.append('vehicleType', $('#v-type').value);
@@ -457,8 +574,8 @@ async function loadVehicles(){
     const list = await api('/api/vehicles');
     const box = $('#vehicleList');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có xe nào.</span>'; return; }
-    box.innerHTML = list.map(v=>'<div class="veh" style="padding:10px 0;border-bottom:1px solid var(--card-border)"><b>'+v.licensePlate+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
-      +' · Màu: '+v.color+' · SĐT: '+v.customerPhone+' · Ảnh gốc: '+(v.baselinePhotoPaths||[]).length+' ảnh</div>').join('');
+    box.innerHTML = list.map(v=>'<div class="veh" style="padding:10px 0;border-bottom:1px solid var(--card-border)"><b>'+(v.ownerName||'—')+'</b> · <b>'+maskPlate(v.licensePlate)+'</b> · '+v.vehicleType+' '+(v.brand||'')+' '+(v.model||'')+' '+(v.year||'')
+      +' · Màu: '+v.color+' · SĐT: '+maskPhone(v.customerPhone)+' · Ảnh gốc: '+(v.baselinePhotoPaths||[]).length+' ảnh</div>').join('');
   }catch(e){ $('#vehicleList').innerHTML = '<span class="muted">Không tải được: '+e.message+'</span>'; }
 }
 

@@ -8,5 +8,7 @@ storage/vehicles/*
 !storage/vehicles/README.md
 storage/claims/*
 !storage/claims/README.md
+# Nhat ky xac minh danh tinh (SQLite bao mat, chi o may chay app, khong commit)
+storage/verification-audit.db
 # Key that lo vao file .env thi khong commit
 .env

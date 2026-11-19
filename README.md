@@ -6,10 +6,13 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
 ## Luồng nghiệp vụ
 
 ```
-1. Đăng ký hồ sơ xe gốc (tab Hồ sơ xe)
-   Biển số + SĐT + loại xe + màu xe + ảnh gốc lúc mua bảo hiểm
+1. Mua bảo hiểm — đăng ký hồ sơ xe gốc (tab Mua bảo hiểm)
+   Ghi đầy đủ: tên chủ xe + biển số + SĐT + loại xe + hãng/dòng/năm + màu xe
+   + chụp ảnh toàn bộ xe lúc còn nguyên vẹn (4 góc + biển số/VIN + cốp)
         ↓
-2. Xe bị thiệt hại → tải nhiều ảnh lên (tab Thẩm định)
+2. Xe bị thiệt hại → nhập biển số + SĐT + loại xe đã đăng ký (tab Thẩm định)
+   → hệ thống hiện xe gốc (thông tin + ảnh gốc) để người dùng XÁC NHẬN đúng xe
+   → chỉ sau khi xác nhận mới được chụp ảnh hư hại gửi AI đánh giá
         ↓
 3. Backend xác minh danh tính xe: đúng biển số + đúng SĐT + đúng loại xe
    → SAI 1 trong 3 = từ chối hồ sơ ngay, không gọi AI (tiết kiệm token, chống gian lận)
@@ -25,7 +28,26 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
    - Quá nặng / ngoài phạm vi mẫu → requiresHumanReview = true
         ↓
 6. Kết quả JSON → lưu MongoDB → hiển thị + giám định viên chốt cuối
+        ↓
+7. Tra cứu tình trạng bồi thường (tab Tra cứu bồi thường)
+   Nhập biển số + loại xe + SĐT → chỉ xe mình mới xem được hồ sơ của mình
 ```
+
+### Bảo mật thông tin cá nhân
+
+- **Hệ thống KHÔNG thu thập CCCD/CMND.** Ảnh chụp giấy tờ tùy thân (CCCD/CMND,
+  giấy phép lái xe, giấy đăng ký xe) bị AI từ chối ngay (validation gate).
+- **Biển số + SĐT luôn hiển thị dạng che** ở mọi màn hình: biển số giữ 3 ký tự
+  đầu + 2 ký tự cuối (VD: `51H***45`), SĐT giữ 3 số đầu + 2 số cuối
+  (VD: `090*****67`). Biển số đầy đủ chỉ dùng nội bộ để đối chiếu danh tính.
+- **Ảnh mẫu trong kho đã kiểm tra: không có biển số đọc được** (biển số ngoài
+  khung hình hoặc đã được nguồn gốc làm mờ/trắng).
+- **Nhật ký xác minh danh tính lưu riêng vào SQLite** (`storage/verification-audit.db`,
+  bảng `verification_log`): mỗi lần xác minh (gửi thẩm định / tra cứu / xác nhận
+  xe gốc) ghi lại biển số + SĐT + loại xe đã nhập, từng mục khớp hay không, lý do
+  và mã hồ sơ. File này CHỈ ở máy chạy app, không đưa lên MongoDB, không trả về
+  qua API, không commit lên git. Xem lại bằng DB Browser for SQLite:
+  `SELECT * FROM verification_log ORDER BY created_at DESC LIMIT 50;`
 
 ## Yêu cầu
 

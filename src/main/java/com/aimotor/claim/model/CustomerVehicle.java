@@ -18,6 +18,9 @@ public class CustomerVehicle {
     @Id
     private String id;
 
+    /** Ten chu xe (ghi day du khi mua bao hiem) */
+    private String ownerName;
+
     /** Bien so da chuan hoa: viet hoa, bo khoang trang / dau gach / dau cham */
     private String licensePlate;
 
@@ -42,6 +45,8 @@ public class CustomerVehicle {
     public CustomerVehicle() {
     }
 
+    public String getOwnerName() { return ownerName; }
+    public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
     public String getLicensePlate() { return licensePlate; }

@@ -36,6 +36,7 @@ public class ClaimAssessmentService {
     private final GeminiService geminiService;
     private final ClaimAssessmentRepository repository;
     private final AppConfigService appConfigService;
+    private final VerificationAuditService auditService;
 
     @Value("${app.assessment.min-photos:2}")
     private int minPhotos;
@@ -49,7 +50,8 @@ public class ClaimAssessmentService {
                                   ImageSharpnessService sharpnessService,
                                   GeminiService geminiService,
                                   ClaimAssessmentRepository repository,
-                                  AppConfigService appConfigService) {
+                                  AppConfigService appConfigService,
+                                  VerificationAuditService auditService) {
         this.vehicleService = vehicleService;
         this.referenceService = referenceService;
         this.imageService = imageService;
@@ -57,6 +59,7 @@ public class ClaimAssessmentService {
         this.geminiService = geminiService;
         this.repository = repository;
         this.appConfigService = appConfigService;
+        this.auditService = auditService;
     }
 
     public ClaimAssessment assess(String licensePlate, String customerPhone, String vehicleType,
@@ -78,6 +81,8 @@ public class ClaimAssessmentService {
             identity.setPassed(false);
             identity.setReason("Khong tim thay ho so xe co bien so " + plate
                     + ". Hay dang ky ho so xe (kem anh goc) truoc khi gui tham dinh.");
+            auditService.log("ASSESSMENT", plate, phone, vehicleType,
+                    false, false, false, false, identity.getReason(), assessment.getClaimId());
             return saveRejected(assessment, "REJECTED",
                     List.of(identity.getReason()), List.of());
         }
@@ -95,9 +100,14 @@ public class ClaimAssessmentService {
                     .append(vehicle.getVehicleType()).append("). ");
             reason.append("Chi xe dung bien so + dung SDT + dung loai xe moi duoc tham dinh.");
             identity.setReason(reason.toString());
+            auditService.log("ASSESSMENT", plate, phone, vehicleType,
+                    identity.isPlateMatch(), identity.isPhoneMatch(), identity.isTypeMatch(),
+                    false, identity.getReason(), assessment.getClaimId());
             return saveRejected(assessment, "REJECTED", List.of(identity.getReason()), List.of());
         }
         identity.setReason("Khop bien so, SDT va loai xe voi ho so goc. Mau goc: " + vehicle.getColor() + ".");
+        auditService.log("ASSESSMENT", plate, phone, vehicleType,
+                true, true, true, true, identity.getReason(), assessment.getClaimId());
 
         // ---- Buoc 2: kiem tra anh dau vao ----
         if (photos == null || photos.length == 0) {
