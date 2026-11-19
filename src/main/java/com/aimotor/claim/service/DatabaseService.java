@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Database van hanh chinh: 1 file SQLite (mac dinh ./storage/aimotor.db).
  *
- * Toan bo du lieu van hanh (ho so xe, ho so tham dinh, kho anh mau, cau hinh)
+ * Toan bo du lieu van hanh (hồ sơ xe, ho so tham dinh, kho anh mau, cau hinh)
  * deu luu o day — khong can MongoDB, khong can cai them database server.
  * Rieng nhat ky xac minh danh tinh van giu file SQLite rieng
  * (./storage/verification-audit.db, xem VerificationAuditService) vi do la
@@ -87,7 +87,14 @@ public class DatabaseService {
                     + "requires_human_review INTEGER NOT NULL DEFAULT 0, "
                     + "human_review_reason TEXT, "
                     + "assessment_summary TEXT, "
+                    + "customer_note TEXT, "
                     + "created_at TEXT NOT NULL)");
+            // Migration: DB da tao tu ban truoc (chua co cot customer_note) thi them cot.
+            // Cot da ton tai thi SQLite bao loi "duplicate column name" -> bo qua.
+            try {
+                st.execute("ALTER TABLE claim_assessments ADD COLUMN customer_note TEXT");
+            } catch (Exception ignored) {
+            }
             st.execute("CREATE INDEX IF NOT EXISTS idx_claims_plate "
                     + "ON claim_assessments(license_plate, created_at DESC)");
             st.execute("CREATE TABLE IF NOT EXISTS reference_damages ("
@@ -116,7 +123,7 @@ public class DatabaseService {
         try {
             return value == null ? "[]" : om.writeValueAsString(value);
         } catch (Exception e) {
-            throw new IllegalStateException("Khong ghi duoc JSON xuong SQLite.", e);
+            throw new IllegalStateException("Không ghi được JSON xuống SQLite.", e);
         }
     }
 

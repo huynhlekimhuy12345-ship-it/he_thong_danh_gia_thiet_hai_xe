@@ -32,7 +32,7 @@ public class ReferenceDamage {
 
     /**
      * true = anh tu dong quet tu folder, chua du metadata (bo phan/gia chuan).
-     * Anh nhap bi loai khoi request Gemini cho toi khi bo sung xong, tranh
+     * Ảnh nhap bi loai khoi request Gemini cho toi khi bo sung xong, tranh
      * AI doi chieu voi anh mau gia 0 VND.
      */
     private boolean needsMetadata = false;

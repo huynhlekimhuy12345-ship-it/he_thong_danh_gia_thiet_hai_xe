@@ -9,10 +9,13 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
 1. Mua bảo hiểm — đăng ký hồ sơ xe gốc (tab Mua bảo hiểm)
    Ghi đầy đủ: tên chủ xe + ngày sinh chủ xe + biển số + SĐT + loại xe + hãng/dòng/năm + màu xe
    + chụp ảnh toàn bộ xe lúc còn nguyên vẹn (4 góc + biển số/VIN + cốp)
+   → Lưu xong form tự xóa sạch để đăng ký xe khác ngay
         ↓
 2. Xe bị thiệt hại → nhập biển số + SĐT + loại xe đã đăng ký (tab Thẩm định)
    → hệ thống hiện xe gốc (thông tin + ảnh gốc) để người dùng XÁC NHẬN đúng xe
    → chỉ sau khi xác nhận mới được chụp ảnh hư hại gửi AI đánh giá
+   → có thể ghi thêm mô tả về vụ việc (không bắt buộc) — AI dùng để hiểu bối cảnh,
+     mức giá vẫn căn cứ vào ảnh; mô tả được lưu cùng hồ sơ và hiện ở kết quả
         ↓
 3. Backend xác minh danh tính xe: đúng biển số + đúng SĐT + đúng loại xe
    → SAI 1 trong 3 = từ chối hồ sơ ngay, không gọi AI (tiết kiệm token, chống gian lận)
@@ -165,7 +168,7 @@ sẽ vào thẳng kho chính thức, không cần bổ sung tay. 14 case MoMo (R
 | POST | `/api/vehicles` | Đăng ký hồ sơ xe + ảnh gốc (multipart) |
 | GET | `/api/vehicles` | Liệt kê xe đã đăng ký |
 | GET | `/api/vehicles/{plate}` | Tra xe theo biển số |
-| POST | `/api/assessments` | Gửi hồ sơ thẩm định (multipart: `licensePlate`, `customerPhone`, `vehicleType`, `photos[]`) |
+| POST | `/api/assessments` | Gửi hồ sơ thẩm định (multipart: `licensePlate`, `customerPhone`, `vehicleType`, `photos[]`, `customerNote` không bắt buộc) |
 | POST | `/api/assessments/{id}/save-to-library` | Lưu hồ sơ đã thẩm định vào kho mẫu (mỗi vết → 1 ảnh mẫu) |
 | GET | `/api/assessments` | Lịch sử thẩm định |
 | GET | `/api/assessments/plate/{plate}` | Lịch sử theo biển số |

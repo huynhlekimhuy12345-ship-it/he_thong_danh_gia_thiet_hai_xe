@@ -7,7 +7,7 @@ import java.util.List;
 
 /**
  * Ho so xe goc cua khach hang (1 xe = 1 ho so), luu trong SQLite (bang customer_vehicles).
- * Anh goc cua xe duoc luu o day ngay khi mua bao hiem, lam "mau" de doi chieu
+ * Ảnh goc cua xe duoc luu o day ngay khi mua bao hiem, lam "mau" de doi chieu
  * khi co thiet hai: dung loai xe, dung SDT, dung bien so moi duoc tham dinh.
  */
 public class CustomerVehicle {

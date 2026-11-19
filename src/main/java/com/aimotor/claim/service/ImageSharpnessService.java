@@ -10,7 +10,7 @@ import java.io.ByteArrayInputStream;
 
 /**
  * Danh gia do net cua anh bang phuong sai Laplacian (Variance of Laplacian).
- * Anh cang mo thi phuong sai cang thap. Ket qua chi la CANH BAO de Gemini
+ * Ảnh cang mo thi phuong sai cang thap. Ket qua chi la CANH BAO de Gemini
  * quyet dinh cuoi cung, khong tu dong loai anh.
  */
 @Service

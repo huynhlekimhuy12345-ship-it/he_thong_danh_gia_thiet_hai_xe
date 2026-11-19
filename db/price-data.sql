@@ -92,21 +92,21 @@ CREATE TABLE reference_cases (
     compensation_vnd INTEGER NOT NULL,
     premium_vnd      INTEGER  -- phi bao hiem / nam, NULL neu khong ro
 );
-INSERT INTO "reference_cases" VALUES('REF_05','PVI','Kia Seltos 2024','Dong co (thuy kich)',3,'Muc 3: Vo/Bien dang nang','Di qua doan duong ngap nuoc, dong co bi thuy kich.',42000000,7110000);
-INSERT INTO "reference_cases" VALUES('REF_06','PVI','Kia Carnival 2024','Duoi xe (can sau)',3,'Muc 3: Vo/Bien dang nang','Lui xe trong bai do dong, va cham xe phia sau, hu hong duoi xe.',32000000,11300000);
-INSERT INTO "reference_cases" VALUES('REF_07','PVI','Honda HR-V 2024','Than xe (tray xuoc, mop nhe)',2,'Muc 2: Mop vua','Va cham nhe voi xe may trong hem, than xe tray xuoc, mop nhe.',14000000,7100000);
-INSERT INTO "reference_cases" VALUES('REF_08','PJICO','Mitsubishi Xpander 2024','Dau xe + Den pha phai',3,'Muc 3: Vo/Bien dang nang','Va cham voi xe may ban dem, dau xe mop + vo den pha phai.',13200000,5006000);
-INSERT INTO "reference_cases" VALUES('REF_09','PJICO','Toyota Fortuner 2022','Toan than + Guong chieu hau',2,'Muc 2: Mop vua','Bi pha hoai qua dem, tray xuoc toan than + vo guong chieu hau.',22500000,7790000);
-INSERT INTO "reference_cases" VALUES('REF_10','PJICO','Toyota Camry 2023','Cua xe',2,'Muc 2: Mop vua','Va cham khi chuyen lan, hu hong cua xe.',25000000,18200000);
-INSERT INTO "reference_cases" VALUES('REF_11','Bao Viet','Honda CR-V 2023','Can sau + Den hau',2,'Muc 2: Mop vua','Lui xe trong bai do, va cham xe phia sau, can sau + den hau.',28000000,11400000);
-INSERT INTO "reference_cases" VALUES('REF_12','Bao Viet','VinFast VF5 2024','Dau xe (tray xuoc, mop)',2,'Muc 2: Mop vua','Va cham cot be tong trong bai do xe, dau xe tray xuoc, mop.',8500000,6050000);
-INSERT INTO "reference_cases" VALUES('REF_13','Bao Viet','VinFast VF9 2024','Dau xe + Than xe',3,'Muc 3: Vo/Bien dang nang','Va cham manh tren cao toc, hu hong nang dau xe + than xe.',58000000,18600000);
-INSERT INTO "reference_cases" VALUES('REF_14','GIC','Toyota Innova 2021','Nap capo',2,'Muc 2: Mop vua','Vat roi tu tren cao, nap capo mop + tray xuoc nhe.',12000000,7400000);
-INSERT INTO "reference_cases" VALUES('REF_15','DBV','Mazda 2 2022','Than xe (tray xuoc nhe)',1,'Muc 1: Xuoc nhe','Tray xuoc nhe khi do xe tren via he.',4500000,5094000);
-INSERT INTO "reference_cases" VALUES('REF_16','DBV','VinFast VF3 2024','Can truoc (tray xuoc, bong son)',2,'Muc 2: Mop vua','MoMo khong co mo ta cho case nay - mo ta theo anh: can truoc tray xuoc, bong son.',6800000,3300000);
-INSERT INTO "reference_cases" VALUES('REF_17','Liberty','Kia Cerato 2022','Than xe (tray xuoc)',1,'Muc 1: Xuoc nhe','Tray xuoc than xe trong bai do xe trung tam thuong mai.',6800000,5800000);
-INSERT INTO "reference_cases" VALUES('REF_18','Bao Long','Ford Everest 2022','Dau xe (hu hong nghiem trong)',3,'Muc 3: Vo/Bien dang nang','Va cham manh tren cao toc voi xe phia truoc, dau xe hu hong nghiem trong.',75000000,7079000);
-INSERT INTO "reference_cases" VALUES('REF_19','MIC + OPES','Mercedes-Benz GLC200','Than xe (tray xuoc nhieu vet)',1,'Muc 1: Xuoc nhe','Bi cao xuoc 7 vi tri tren than xe (cua, hong sau). Chi phi sua chua thuc te 8.200.000d; giam dinh thiet hai 6.862.000d. Bao gia hang 127,6 trieu va yeu cau 470 trieu da bi toa bac.',8200000,NULL);
+INSERT INTO "reference_cases" VALUES('REF_05','PVI','Kia Seltos 2024','Động cơ (thủy kích)',3,'Mức 3: Vỡ/Biến dạng nặng','Đi qua đoạn đường ngập nước, động cơ bị thủy kích.',42000000,7110000);
+INSERT INTO "reference_cases" VALUES('REF_06','PVI','Kia Carnival 2024','Đuôi xe (cản sau)',3,'Mức 3: Vỡ/Biến dạng nặng','Lùi xe trong bãi đỗ đông, va chạm xe phía sau, hư hỏng đuôi xe.',32000000,11300000);
+INSERT INTO "reference_cases" VALUES('REF_07','PVI','Honda HR-V 2024','Thân xe (trầy xước, móp nhẹ)',2,'Mức 2: Móp vừa','Va chạm nhẹ với xe máy trong hẻm, thân xe trầy xước, móp nhẹ.',14000000,7100000);
+INSERT INTO "reference_cases" VALUES('REF_08','PJICO','Mitsubishi Xpander 2024','Đầu xe + Đèn pha phải',3,'Mức 3: Vỡ/Biến dạng nặng','Va chạm với xe máy ban đêm, đầu xe móp + vỡ đèn pha phải.',13200000,5006000);
+INSERT INTO "reference_cases" VALUES('REF_09','PJICO','Toyota Fortuner 2022','Toàn thân + Gương chiếu hậu',2,'Mức 2: Móp vừa','Bị phá hoại qua đêm, trầy xước toàn thân + vỡ gương chiếu hậu.',22500000,7790000);
+INSERT INTO "reference_cases" VALUES('REF_10','PJICO','Toyota Camry 2023','Cửa xe',2,'Mức 2: Móp vừa','Va chạm khi chuyển làn, hư hỏng cửa xe.',25000000,18200000);
+INSERT INTO "reference_cases" VALUES('REF_11','Bảo Việt','Honda CR-V 2023','Cản sau + Đèn hậu',2,'Mức 2: Móp vừa','Lùi xe trong bãi đỗ, va chạm xe phía sau, cản sau + đèn hậu.',28000000,11400000);
+INSERT INTO "reference_cases" VALUES('REF_12','Bảo Việt','VinFast VF5 2024','Đầu xe (trầy xước, móp)',2,'Mức 2: Móp vừa','Va chạm cột bê tông trong bãi đỗ xe, đầu xe trầy xước, móp.',8500000,6050000);
+INSERT INTO "reference_cases" VALUES('REF_13','Bảo Việt','VinFast VF9 2024','Đầu xe + Thân xe',3,'Mức 3: Vỡ/Biến dạng nặng','Va chạm mạnh trên cao tốc, hư hỏng nặng đầu xe + thân xe.',58000000,18600000);
+INSERT INTO "reference_cases" VALUES('REF_14','GIC','Toyota Innova 2021','Nắp capo',2,'Mức 2: Móp vừa','Vật rơi từ trên cao, nắp capo móp + trầy xước nhẹ.',12000000,7400000);
+INSERT INTO "reference_cases" VALUES('REF_15','DBV','Mazda 2 2022','Thân xe (trầy xước nhẹ)',1,'Mức 1: Xước nhẹ','Trầy xước nhẹ khi đỗ xe trên vỉa hè.',4500000,5094000);
+INSERT INTO "reference_cases" VALUES('REF_16','DBV','VinFast VF3 2024','Cản trước (trầy xước, bong sơn)',2,'Mức 2: Móp vừa','MoMo không có mô tả cho case này - mô tả theo ảnh: cản trước trầy xước, bong sơn.',6800000,3300000);
+INSERT INTO "reference_cases" VALUES('REF_17','Liberty','Kia Cerato 2022','Thân xe (trầy xước)',1,'Mức 1: Xước nhẹ','Trầy xước thân xe trong bãi đỗ xe trung tâm thương mại.',6800000,5800000);
+INSERT INTO "reference_cases" VALUES('REF_18','Bảo Long','Ford Everest 2022','Đầu xe (hư hỏng nghiêm trọng)',3,'Mức 3: Vỡ/Biến dạng nặng','Va chạm mạnh trên cao tốc với xe phía trước, đầu xe hư hỏng nghiêm trọng.',75000000,7079000);
+INSERT INTO "reference_cases" VALUES('REF_19','MIC + OPES','Mercedes-Benz GLC200','Thân xe (trầy xước nhiều vết)',1,'Mức 1: Xước nhẹ','Bị cào xước 7 vị trí trên thân xe (cửa, hông sau). Chi phí sửa chữa thực tế 8.200.000đ; giám định thiệt hại 6.862.000đ. Báo giá hãng 127,6 triệu và yêu cầu 470 triệu đã bị tòa bác.',8200000,NULL);
 CREATE TABLE reference_photos (
     ref_id   TEXT PRIMARY KEY,
     case_ref TEXT NOT NULL REFERENCES reference_cases (ref_id),

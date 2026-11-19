@@ -45,7 +45,7 @@ public class ConfigController {
         String apiKey = body.get("apiKey");
         String model = body.get("model");
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalArgumentException("API key khong duoc de trong.");
+            throw new IllegalArgumentException("API key không được để trống.");
         }
         AppConfig saved = appConfigService.save(apiKey, model);
         return Map.of("saved", true, "model", saved.getModel() != null ? saved.getModel() : modelProperty);

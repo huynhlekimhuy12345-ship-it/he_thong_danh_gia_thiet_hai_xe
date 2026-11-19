@@ -35,7 +35,7 @@ public class CustomerVehicleRepository {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong tim duoc xe theo bien so trong SQLite.", e);
+            throw new IllegalStateException("Không tìm được xe theo biển số trong SQLite.", e);
         }
     }
 
@@ -53,7 +53,7 @@ public class CustomerVehicleRepository {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong tim duoc xe theo id trong SQLite.", e);
+            throw new IllegalStateException("Không tìm được xe theo id trong SQLite.", e);
         }
     }
 
@@ -66,7 +66,7 @@ public class CustomerVehicleRepository {
             while (rs.next()) out.add(mapRow(rs));
             return out;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong doc duoc danh sach xe tu SQLite.", e);
+            throw new IllegalStateException("Không đọc được danh sách xe từ SQLite.", e);
         }
     }
 
@@ -94,7 +94,7 @@ public class CustomerVehicleRepository {
             }
             return v;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong luu duoc ho so xe xuong SQLite.", e);
+            throw new IllegalStateException("Không lưu được hồ sơ xe xuống SQLite.", e);
         }
     }
 

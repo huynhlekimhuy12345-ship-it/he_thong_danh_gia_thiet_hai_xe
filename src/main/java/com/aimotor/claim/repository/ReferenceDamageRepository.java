@@ -31,7 +31,7 @@ public class ReferenceDamageRepository {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong tim duoc anh mau theo ma trong SQLite.", e);
+            throw new IllegalStateException("Không tìm được ảnh mẫu theo mã trong SQLite.", e);
         }
     }
 
@@ -49,7 +49,7 @@ public class ReferenceDamageRepository {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong tim duoc anh mau theo id trong SQLite.", e);
+            throw new IllegalStateException("Không tìm được ảnh mẫu theo id trong SQLite.", e);
         }
     }
 
@@ -62,7 +62,7 @@ public class ReferenceDamageRepository {
             while (rs.next()) out.add(mapRow(rs));
             return out;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong doc duoc kho anh mau tu SQLite.", e);
+            throw new IllegalStateException("Không đọc được kho ảnh mẫu từ SQLite.", e);
         }
     }
 
@@ -73,7 +73,7 @@ public class ReferenceDamageRepository {
              ResultSet rs = ps.executeQuery()) {
             return rs.next() ? rs.getLong(1) : 0;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong dem duoc kho anh mau trong SQLite.", e);
+            throw new IllegalStateException("Không đếm được kho ảnh mẫu trong SQLite.", e);
         }
     }
 
@@ -101,7 +101,7 @@ public class ReferenceDamageRepository {
             }
             return r;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong luu duoc anh mau xuong SQLite.", e);
+            throw new IllegalStateException("Không lưu được ảnh mẫu xuống SQLite.", e);
         }
     }
 
@@ -113,7 +113,7 @@ public class ReferenceDamageRepository {
             ps.setString(1, r.getId());
             ps.executeUpdate();
         } catch (Exception e) {
-            throw new IllegalStateException("Khong xoa duoc anh mau trong SQLite.", e);
+            throw new IllegalStateException("Không xóa được ảnh mẫu trong SQLite.", e);
         }
     }
 

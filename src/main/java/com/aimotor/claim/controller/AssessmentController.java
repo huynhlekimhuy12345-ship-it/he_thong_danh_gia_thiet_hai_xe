@@ -44,8 +44,9 @@ public class AssessmentController {
             @RequestParam("licensePlate") String licensePlate,
             @RequestParam("customerPhone") String customerPhone,
             @RequestParam("vehicleType") String vehicleType,
-            @RequestParam("photos") MultipartFile[] photos) throws Exception {
-        ClaimAssessment result = service.assess(licensePlate, customerPhone, vehicleType, photos);
+            @RequestParam("photos") MultipartFile[] photos,
+            @RequestParam(value = "customerNote", required = false) String customerNote) throws Exception {
+        ClaimAssessment result = service.assess(licensePlate, customerPhone, vehicleType, photos, customerNote);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
@@ -84,7 +85,7 @@ public class AssessmentController {
         auditService.log("LOOKUP", VehicleService.normalizePlate(licensePlate),
                 VehicleService.normalizePhone(customerPhone), vehicleType,
                 result.plateMatch(), result.phoneMatch(), result.typeMatch(), result.passed(),
-                result.passed() ? "Tra cuu boi thuong thanh cong." : "Thong tin khong khop voi ho so xe goc.", null);
+                result.passed() ? "Tra cứu bồi thường thành công." : "Thông tin không khớp với hồ sơ xe gốc.", null);
         if (!result.passed()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Thông tin không khớp với hồ sơ xe. Kiểm tra lại biển số, loại xe và SĐT."));

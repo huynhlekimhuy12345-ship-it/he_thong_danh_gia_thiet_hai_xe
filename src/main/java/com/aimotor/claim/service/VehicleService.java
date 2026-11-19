@@ -103,13 +103,13 @@ public class VehicleService {
         if (ownerName == null || ownerName.isBlank() || ownerDateOfBirth == null
                 || plate.isBlank() || phone.isBlank()
                 || vehicleType == null || vehicleType.isBlank()) {
-            throw new IllegalArgumentException("Thieu ten chu xe, ngay sinh, bien so, SDT hoac loai xe.");
+            throw new IllegalArgumentException("Thiếu tên chủ xe, ngày sinh, biển số, SĐT hoặc loại xe.");
         }
         if (ownerDateOfBirth.isAfter(java.time.LocalDate.now())) {
-            throw new IllegalArgumentException("Ngay sinh khong duoc lon hon ngay hien tai.");
+            throw new IllegalArgumentException("Ngày sinh không được lớn hơn ngày hiện tại.");
         }
         if (repository.existsByLicensePlate(plate)) {
-            throw new IllegalArgumentException("Bien so " + plate + " da co ho so xe. Dung chuc nang cap nhat hoac dung bien so khac.");
+            throw new IllegalArgumentException("Biển số " + plate + " đã có hồ sơ xe. Dùng chức năng cập nhật hoặc dùng biển số khác.");
         }
         List<String> photoPaths = new ArrayList<>();
         if (baselinePhotos != null) {

@@ -48,6 +48,9 @@ public class ClaimAssessment {
 
     private String assessmentSummary;
 
+    /** Mo ta them cua khach ve vu viec (khong bat buoc), gui kem cho Gemini + luu vao kho mau. */
+    private String customerNote;
+
     private Instant createdAt = Instant.now();
 
     public ClaimAssessment() {
@@ -135,6 +138,8 @@ public class ClaimAssessment {
     public void setHumanReviewReason(String humanReviewReason) { this.humanReviewReason = humanReviewReason; }
     public String getAssessmentSummary() { return assessmentSummary; }
     public void setAssessmentSummary(String assessmentSummary) { this.assessmentSummary = assessmentSummary; }
+    public String getCustomerNote() { return customerNote; }
+    public void setCustomerNote(String customerNote) { this.customerNote = customerNote; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

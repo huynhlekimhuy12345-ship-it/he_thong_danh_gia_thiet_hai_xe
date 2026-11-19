@@ -17,7 +17,7 @@ import java.util.Map;
 
 /**
  * API Kho anh mau du tru.
- * Anh mau moi chi vao kho tu ho so tham dinh (POST /api/assessments/{id}/save-to-library)
+ * Ảnh mau moi chi vao kho tu ho so tham dinh (POST /api/assessments/{id}/save-to-library)
  * hoac quet folder — KHONG them thu cong tung anh nua.
  */
 @RestController
@@ -41,7 +41,7 @@ public class ReferenceController {
         ReferenceDamage ref = service.listAll().stream()
                 .filter(r -> r.getId().equals(id) || r.getReferenceId().equals(id))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay anh mau " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ảnh mẫu " + id));
         Path path = Paths.get(ref.getImagePath());
         if (!Files.exists(path)) {
             return ResponseEntity.notFound().build();

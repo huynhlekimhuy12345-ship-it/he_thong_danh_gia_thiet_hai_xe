@@ -42,7 +42,7 @@ public class VehicleController {
         return service.findByPlate(plate)
                 .<ResponseEntity<?>>map(v -> ResponseEntity.ok(VehicleService.maskedCopy(v)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Khong tim thay xe bien so " + plate)));
+                        .body(Map.of("error", "Không tìm thấy xe biển số " + plate)));
     }
 
     /**
@@ -59,7 +59,7 @@ public class VehicleController {
         auditService.log("CONFIRM", VehicleService.normalizePlate(licensePlate),
                 VehicleService.normalizePhone(customerPhone), vehicleType,
                 result.plateMatch(), result.phoneMatch(), result.typeMatch(), result.passed(),
-                result.passed() ? "Xac nhan xe goc thanh cong." : "Thong tin khong khop voi ho so xe goc.", null);
+                result.passed() ? "Xác nhận xe gốc thành công." : "Thông tin không khớp với hồ sơ xe gốc.", null);
         if (!result.passed()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Thông tin không khớp với hồ sơ xe. Kiểm tra lại biển số, loại xe và SĐT."));
@@ -67,7 +67,7 @@ public class VehicleController {
         return ResponseEntity.ok(VehicleConfirmDto.from(result.vehicle()));
     }
 
-    /** Anh goc cua xe (chi dung id xe + so thu tu, khong de bien so lo trong URL). */
+    /** Ảnh goc cua xe (chi dung id xe + so thu tu, khong de bien so lo trong URL). */
     @GetMapping("/photo/{vehicleId}/{index}")
     public ResponseEntity<Resource> baselinePhoto(@PathVariable String vehicleId,
                                                   @PathVariable int index) throws Exception {

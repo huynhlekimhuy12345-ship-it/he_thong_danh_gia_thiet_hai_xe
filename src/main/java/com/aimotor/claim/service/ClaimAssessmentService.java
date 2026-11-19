@@ -63,7 +63,7 @@ public class ClaimAssessmentService {
     }
 
     public ClaimAssessment assess(String licensePlate, String customerPhone, String vehicleType,
-                                  MultipartFile[] photos) throws IOException {
+                                  MultipartFile[] photos, String customerNote) throws IOException {
         String plate = VehicleService.normalizePlate(licensePlate);
         String phone = VehicleService.normalizePhone(customerPhone);
 
@@ -71,6 +71,7 @@ public class ClaimAssessmentService {
         assessment.setClaimId(generateClaimId());
         assessment.setLicensePlate(plate);
         assessment.setCustomerPhone(phone);
+        assessment.setCustomerNote(customerNote == null ? null : customerNote.trim());
 
         // ---- Buoc 1: xac minh danh tinh xe ----
         ClaimAssessment.IdentityCheck identity = new ClaimAssessment.IdentityCheck();
@@ -79,8 +80,8 @@ public class ClaimAssessmentService {
         if (vehicleOpt.isEmpty()) {
             identity.setPlateMatch(false);
             identity.setPassed(false);
-            identity.setReason("Khong tim thay ho so xe co bien so " + plate
-                    + ". Hay dang ky ho so xe (kem anh goc) truoc khi gui tham dinh.");
+            identity.setReason("Không tìm thấy hồ sơ xe có biển số " + plate
+                    + ". Hãy đăng ký hồ sơ xe (kèm ảnh gốc) trước khi gửi thẩm định.");
             auditService.log("ASSESSMENT", plate, phone, vehicleType,
                     false, false, false, false, identity.getReason(), assessment.getClaimId());
             return saveRejected(assessment, "REJECTED",
@@ -94,18 +95,18 @@ public class ClaimAssessmentService {
                 && vehicle.getVehicleType().equalsIgnoreCase(vehicleType.trim()));
         identity.setPassed(identity.isPlateMatch() && identity.isPhoneMatch() && identity.isTypeMatch());
         if (!identity.isPassed()) {
-            StringBuilder reason = new StringBuilder("Thong tin khong khop voi ho so xe goc: ");
-            if (!identity.isPhoneMatch()) reason.append("SDT khong khop. ");
-            if (!identity.isTypeMatch()) reason.append("Loai xe khong khop (ho so: ")
+            StringBuilder reason = new StringBuilder("Thông tin không khớp với hồ sơ xe gốc: ");
+            if (!identity.isPhoneMatch()) reason.append("SĐT không khớp. ");
+            if (!identity.isTypeMatch()) reason.append("Loại xe không khớp (hồ sơ: ")
                     .append(vehicle.getVehicleType()).append("). ");
-            reason.append("Chi xe dung bien so + dung SDT + dung loai xe moi duoc tham dinh.");
+            reason.append("Chỉ xe đúng biển số + đúng SĐT + đúng loại xe mới được thẩm định.");
             identity.setReason(reason.toString());
             auditService.log("ASSESSMENT", plate, phone, vehicleType,
                     identity.isPlateMatch(), identity.isPhoneMatch(), identity.isTypeMatch(),
                     false, identity.getReason(), assessment.getClaimId());
             return saveRejected(assessment, "REJECTED", List.of(identity.getReason()), List.of());
         }
-        identity.setReason("Khop bien so, SDT va loai xe voi ho so goc. Mau goc: " + vehicle.getColor() + ".");
+        identity.setReason("Khớp biển số, SĐT và loại xe với hồ sơ gốc. Màu gốc: " + vehicle.getColor() + ".");
         assessment.setOwnerName(vehicle.getOwnerName());
         auditService.log("ASSESSMENT", plate, phone, vehicleType,
                 true, true, true, true, identity.getReason(), assessment.getClaimId());
@@ -113,14 +114,14 @@ public class ClaimAssessmentService {
         // ---- Buoc 2: kiem tra anh dau vao ----
         if (photos == null || photos.length == 0) {
             return saveRejected(assessment, "NEEDS_MORE_INFO",
-                    List.of("Chua co anh nao duoc gui len. Hay chup theo checklist: 4 goc ngoai that, cop, bien so va can canh tung vet."),
-                    List.of("Anh toan xe 4 goc", "Anh cop", "Anh bien so", "Anh can canh vet hu hai"));
+                    List.of("Chưa có ảnh nào được gửi lên. Hãy chụp theo checklist: 4 góc ngoại thất, cốp, biển số và cận cảnh từng vết."),
+                    List.of("Ảnh toàn xe 4 góc", "Ảnh cốp", "Ảnh biển số", "Ảnh cận cảnh vết hư hại"));
         }
         if (photos.length < minPhotos) {
             return saveRejected(assessment, "NEEDS_MORE_INFO",
-                    List.of("Chi co " + photos.length + " anh, can it nhat " + minPhotos
-                            + " anh de danh gia. Hay bo sung theo checklist."),
-                    List.of("Anh toan xe 4 goc", "Anh cop", "Anh can canh vet hu hai"));
+                    List.of("Chỉ có " + photos.length + " ảnh, cần ít nhất " + minPhotos
+                            + " ảnh để đánh giá. Hãy bổ sung theo checklist."),
+                    List.of("Ảnh toàn xe 4 góc", "Ảnh cốp", "Ảnh cận cảnh vết hư hại"));
         }
         List<String> customerBase64 = new ArrayList<>();
         List<String> blurryHints = new ArrayList<>();
@@ -134,8 +135,8 @@ public class ClaimAssessmentService {
             byte[] jpeg = imageService.toJpegBytes(photo);
             double sharpness = sharpnessService.score(jpeg);
             if (sharpnessService.isBlurry(sharpness)) {
-                blurryHints.add("Anh khach " + (i + 1) + " co dau hieu mo (diem net "
-                        + String.format("%.1f", sharpness) + ", nguong " + sharpnessService.getThreshold() + ")");
+                blurryHints.add("Ảnh khách " + (i + 1) + " có dấu hiệu mờ (điểm nét "
+                        + String.format("%.1f", sharpness) + ", ngưỡng " + sharpnessService.getThreshold() + ")");
             }
             customerBase64.add(java.util.Base64.getEncoder().encodeToString(jpeg));
         }
@@ -152,7 +153,8 @@ public class ClaimAssessmentService {
             }
         }
         GeminiAssessmentResult result = geminiService.assess(
-                vehicle, references, baselineBase64, customerBase64, blurryHints);
+                vehicle, references, baselineBase64, customerBase64, blurryHints,
+                assessment.getCustomerNote());
 
         // ---- Buoc 4: ghi ket qua ----
         String status = result.getValidation() != null && result.getValidation().getStatus() != null
@@ -203,8 +205,8 @@ public class ClaimAssessmentService {
         assessment.setRequiresHumanReview(false);
         assessment.setHumanReviewReason("");
         assessment.setAssessmentSummary(status.equals("REJECTED")
-                ? "Ho so bi tu choi o buoc kiem tra: " + String.join(" ", issues)
-                : "Ho so chua du dieu kien tham dinh, can bo sung thong tin/anh.");
+                ? "Hồ sơ bị từ chối ở bước kiểm tra: " + String.join(" ", issues)
+                : "Hồ sơ chưa đủ điều kiện thẩm định, cần bổ sung thông tin/ảnh.");
         return repository.save(assessment);
     }
 

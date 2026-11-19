@@ -36,7 +36,7 @@ public class ClaimAssessmentRepository {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong tim duoc ho so tham dinh theo id trong SQLite.", e);
+            throw new IllegalStateException("Không tìm được hồ sơ thẩm định theo id trong SQLite.", e);
         }
     }
 
@@ -52,7 +52,7 @@ public class ClaimAssessmentRepository {
                 return out;
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong doc duoc lich su tham dinh theo bien so tu SQLite.", e);
+            throw new IllegalStateException("Không đọc được lịch sử thẩm định theo biển số từ SQLite.", e);
         }
     }
 
@@ -65,7 +65,7 @@ public class ClaimAssessmentRepository {
             while (rs.next()) out.add(mapRow(rs));
             return out;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong doc duoc lich su tham dinh tu SQLite.", e);
+            throw new IllegalStateException("Không đọc được lịch sử thẩm định từ SQLite.", e);
         }
     }
 
@@ -80,9 +80,9 @@ public class ClaimAssessmentRepository {
                     + " missing_photos = ?, identity_json = ?, damages_json = ?, claim_photo_paths = ?,"
                     + " total_compensation_vnd = ?, deductible_vnd = ?, net_compensation_vnd = ?,"
                     + " requires_human_review = ?, human_review_reason = ?, assessment_summary = ?,"
-                    + " created_at = ? WHERE id = ?")) {
+                    + " customer_note = ?, created_at = ? WHERE id = ?")) {
                 bind(ps, a);
-                ps.setString(19, a.getId());
+                ps.setString(20, a.getId());
                 if (ps.executeUpdate() > 0) return a;
             }
             try (PreparedStatement ps = conn.prepareStatement(
@@ -91,15 +91,15 @@ public class ClaimAssessmentRepository {
                     + " missing_photos, identity_json, damages_json, claim_photo_paths,"
                     + " total_compensation_vnd, deductible_vnd, net_compensation_vnd,"
                     + " requires_human_review, human_review_reason, assessment_summary,"
-                    + " created_at, id)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                    + " customer_note, created_at, id)"
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                 bind(ps, a);
-                ps.setString(19, a.getId());
+                ps.setString(20, a.getId());
                 ps.executeUpdate();
             }
             return a;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong luu duoc ho so tham dinh xuong SQLite.", e);
+            throw new IllegalStateException("Không lưu được hồ sơ thẩm định xuống SQLite.", e);
         }
     }
 
@@ -121,7 +121,8 @@ public class ClaimAssessmentRepository {
         ps.setInt(15, a.isRequiresHumanReview() ? 1 : 0);
         ps.setString(16, a.getHumanReviewReason());
         ps.setString(17, a.getAssessmentSummary());
-        ps.setString(18, a.getCreatedAt() == null ? Instant.now().toString() : a.getCreatedAt().toString());
+        ps.setString(18, a.getCustomerNote());
+        ps.setString(19, a.getCreatedAt() == null ? Instant.now().toString() : a.getCreatedAt().toString());
     }
 
     private ClaimAssessment mapRow(ResultSet rs) throws Exception {
@@ -148,6 +149,7 @@ public class ClaimAssessmentRepository {
         a.setRequiresHumanReview(rs.getInt("requires_human_review") == 1);
         a.setHumanReviewReason(rs.getString("human_review_reason"));
         a.setAssessmentSummary(rs.getString("assessment_summary"));
+        a.setCustomerNote(rs.getString("customer_note"));
         String created = rs.getString("created_at");
         a.setCreatedAt(created == null || created.isBlank() ? Instant.now() : Instant.parse(created));
         return a;

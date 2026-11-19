@@ -27,7 +27,7 @@ public class AppConfigRepository {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Khong doc duoc cau hinh tu SQLite.", e);
+            throw new IllegalStateException("Không đọc được cấu hình từ SQLite.", e);
         }
     }
 
@@ -54,7 +54,7 @@ public class AppConfigRepository {
             }
             return config;
         } catch (Exception e) {
-            throw new IllegalStateException("Khong luu duoc cau hinh xuong SQLite.", e);
+            throw new IllegalStateException("Không lưu được cấu hình xuống SQLite.", e);
         }
     }
 

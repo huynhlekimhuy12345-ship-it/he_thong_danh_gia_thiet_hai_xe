@@ -9,12 +9,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,24 +85,26 @@ public class GeminiService {
      * @param references   anh mau du tru (da resize + Base64)
      * @param baselineBase64 anh goc cua xe luc mua bao hiem (co the rong)
      * @param customerBase64 anh khach gui (da resize + Base64)
-     * @param blurryHints  canh bao anh mo tu backend, VD: "Anh khach 2 co dau hieu mo"
+     * @param blurryHints  canh bao anh mo tu backend, VD: "Ảnh khách 2 có dấu hiệu mờ"
+     * @param customerNote mo ta them cua khach ve vu viec (co the rong)
      */
     public GeminiAssessmentResult assess(CustomerVehicle vehicle,
                                          List<ReferencePayload> references,
                                          List<String> baselineBase64,
                                          List<String> customerBase64,
-                                         List<String> blurryHints) {
+                                         List<String> blurryHints,
+                                         String customerNote) {
         String apiKey = resolveApiKey();
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("Chua cau hinh Gemini API key. "
-                    + "Dat bien moi truong GEMINI_API_KEY hoac nhap key o tab Cai dat.");
+            throw new IllegalStateException("Chưa cấu hình Gemini API key. "
+                    + "Đặt biến môi trường GEMINI_API_KEY hoặc nhập key ở tab Cài đặt.");
         }
         String model = resolveModel();
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("system_instruction", Map.of("parts", List.of(
                 Map.of("text", buildSystemPrompt(vehicle, blurryHints)))));
-        body.put("contents", List.of(Map.of("parts", buildParts(references, baselineBase64, customerBase64))));
+        body.put("contents", List.of(Map.of("parts", buildParts(references, baselineBase64, customerBase64, customerNote))));
         Map<String, Object> generationConfig = new LinkedHashMap<>();
         generationConfig.put("temperature", 0.2);
         generationConfig.put("responseMimeType", "application/json");
@@ -109,30 +114,40 @@ public class GeminiService {
         String url = apiBaseUrl + "/" + model + ":generateContent";
         String raw;
         try {
-            raw = restClient.post()
+            // Doc dang byte[] thay vi String: Gemini hoac proxy giua duong co the tra ve
+            // Content-Type la (VD: application/octet-stream) ma StringHttpMessageConverter
+            // khong doc duoc -> loi "Error while extracting response..." kho hieu.
+            byte[] bytes = restClient.post()
                     .uri(url)
                     .header("x-goog-api-key", apiKey)
+                    .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(String.class);
+                    .body(byte[].class);
+            raw = bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
         } catch (RestClientResponseException e) {
             log.error("Gemini API loi {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new GeminiException("Gemini API tra loi " + e.getStatusCode()
-                    + ". Kiem tra API key / model / han muc. Chi tiet: " + e.getResponseBodyAsString(), e);
+            throw new GeminiException("Gemini API trả lời " + e.getStatusCode()
+                    + ". Kiểm tra API key / model / hạn mức. Chi tiết: " + e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            // Loi mang / timeout / phan hoi la: ghi log de doan nguyen nhan that.
+            log.error("Khong goi duoc Gemini API: {}", e.getMessage());
+            throw new GeminiException("Không gọi được Gemini API (" + e.getMessage()
+                    + "). Kiểm tra mạng, API key và thử lại.", e);
         }
         if (raw == null || raw.isBlank()) {
-            throw new GeminiException("Gemini tra ve phan hoi rong.");
+            throw new GeminiException("Gemini trả về phản hồi rỗng.");
         }
         try {
             JsonNode root = objectMapper.readTree(raw);
             JsonNode error = root.get("error");
             if (error != null) {
-                throw new GeminiException("Gemini API bao loi: " + error.path("message").asText());
+                throw new GeminiException("Gemini API báo lỗi: " + error.path("message").asText());
             }
             String text = root.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText(null);
             if (text == null || text.isBlank()) {
-                throw new GeminiException("Gemini khong tra ve noi dung danh gia.");
+                throw new GeminiException("Gemini không trả về nội dung đánh giá.");
             }
             String json = stripCodeFences(text);
             return objectMapper.readValue(json, GeminiAssessmentResult.class);
@@ -140,7 +155,7 @@ public class GeminiService {
             throw e;
         } catch (Exception e) {
             log.error("Khong phan tich duoc JSON tu Gemini: {}", raw, e);
-            throw new GeminiException("Khong phan tich duoc ket qua JSON tu Gemini.", e);
+            throw new GeminiException("Không phân tích được kết quả JSON từ Gemini.", e);
         }
     }
 
@@ -158,36 +173,36 @@ public class GeminiService {
     public PriceSuggestion suggestPrice(String newImageBase64, List<ReferencePayload> references) {
         String apiKey = resolveApiKey();
         if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalStateException("Chua cau hinh Gemini API key. "
-                    + "Dat bien moi truong GEMINI_API_KEY hoac nhap key o tab Cai dat.");
+            throw new IllegalStateException("Chưa cấu hình Gemini API key. "
+                    + "Đặt biến môi trường GEMINI_API_KEY hoặc nhập key ở tab Cài đặt.");
         }
         if (references == null || references.isEmpty()) {
-            throw new IllegalStateException("Chua co anh mau cu nao co gia chuan de doi chieu.");
+            throw new IllegalStateException("Chưa có ảnh mẫu cũ nào có giá chuẩn để đối chiếu.");
         }
         String model = resolveModel();
 
         Map<String, Object> body = new LinkedHashMap<>();
-        String suggestInstruction = "Ban la chuyen gia dinh gia sua chua xe. Cho 1 ANH MOI (chua co gia) va KHO ANH MAU CU da co gia chuan, "
-                + "hay tim anh mau giong nhat ve bo phan + loai hu hai + muc do. Tra loi HOAN TOAN bang tieng Viet, "
-                + "chi theo dung JSON schema da cho.\n"
-                + "BANG GIA THAM CHIEU (can cu dinh gia, xe pho thong, khong theo hang/model xe):\n"
+        String suggestInstruction = "Bạn là chuyên gia định giá sửa chữa xe. Cho 1 ẢNH MỚI (chưa có giá) và KHO ẢNH MẪU CŨ đã có giá chuẩn, "
+                + "hãy tìm ảnh mẫu giống nhất về bộ phận + loại hư hại + mức độ. Trả lời HOÀN TOÀN bằng tiếng Việt có dấu, "
+                + "chỉ theo đúng JSON schema đã cho.\n"
+                + "BẢNG GIÁ THAM CHIẾU (căn cứ định giá, xe phổ thông, không theo hãng/model xe):\n"
                 + priceTableService.formatForPrompt()
-                + "Cach dinh gia: tim anh mau giong nhat de xac dinh bo phan + muc do, roi lay gia tu BANG GIA tren (muc hop li nhat trong khoang cua bo phan + muc do do). "
-                + "Gia cua anh mau cu chi dung de doi chieu do lon, KHONG lay truc tiep. "
-                + "Neu khong xac dinh duoc bo phan/muc do (anh mo, khong phai o to, khac hoan toan kho mau) thi tra matchedReferenceId = \"\", "
-                + "suggestedPriceVnd = 0, confidenceScore = 0 va giai thich ly do. KHONG duoc doan gia khi khong co can cu. confidenceScore: 0.0-1.0.";
+                + "Cách định giá: tìm ảnh mẫu giống nhất để xác định bộ phận + mức độ, rồi lấy giá từ BẢNG GIÁ trên (mức hợp lí nhất trong khoảng của bộ phận + mức độ đó). "
+                + "Giá của ảnh mẫu cũ chỉ dùng để đối chiếu độ lớn, KHÔNG lấy trực tiếp. "
+                + "Nếu không xác định được bộ phận/mức độ (ảnh mờ, không phải ô tô, khác hoàn toàn kho mẫu) thì trả matchedReferenceId = \"\", "
+                + "suggestedPriceVnd = 0, confidenceScore = 0 và giải thích lý do. KHÔNG được đoán giá khi không có căn cứ. confidenceScore: 0.0-1.0.";
         body.put("system_instruction", Map.of("parts", List.of(Map.of("text", suggestInstruction))));
         List<Map<String, Object>> parts = new ArrayList<>();
-        parts.add(Map.of("text", "KHO ANH MAU CU (da co gia chuan):"));
+        parts.add(Map.of("text", "KHO ẢNH MẪU CŨ (đã có giá chuẩn):"));
         for (ReferencePayload ref : references) {
             ReferenceDamage r = ref.reference();
-            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia tham chieu %,d VND] Mo ta: %s",
+            String label = String.format("[MẪU - %s - %s - Mức %d (%s) - Giá tham chiếu %,d VND] Mô tả: %s",
                     r.getReferenceId(), r.getPartName(), r.getSeverityLevel(),
                     r.getSeverityLabel(), r.getStandardPriceVnd(), r.getDescription());
             parts.add(Map.of("text", label));
             parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", ref.base64Jpeg())));
         }
-        parts.add(Map.of("text", "[ANH MOI CAN DINH GIA]"));
+        parts.add(Map.of("text", "[ẢNH MỚI CẦN ĐỊNH GIÁ]"));
         parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", newImageBase64)));
         body.put("contents", List.of(Map.of("parts", parts)));
         Map<String, Object> generationConfig = new LinkedHashMap<>();
@@ -199,37 +214,47 @@ public class GeminiService {
         String url = apiBaseUrl + "/" + model + ":generateContent";
         String raw;
         try {
-            raw = restClient.post()
+            // Doc dang byte[] thay vi String: Gemini hoac proxy giua duong co the tra ve
+            // Content-Type la (VD: application/octet-stream) ma StringHttpMessageConverter
+            // khong doc duoc -> loi "Error while extracting response..." kho hieu.
+            byte[] bytes = restClient.post()
                     .uri(url)
                     .header("x-goog-api-key", apiKey)
+                    .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(String.class);
+                    .body(byte[].class);
+            raw = bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
         } catch (RestClientResponseException e) {
             log.error("Gemini API loi {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new GeminiException("Gemini API tra loi " + e.getStatusCode()
-                    + ". Kiem tra API key / model / han muc. Chi tiet: " + e.getResponseBodyAsString(), e);
+            throw new GeminiException("Gemini API trả lời " + e.getStatusCode()
+                    + ". Kiểm tra API key / model / hạn mức. Chi tiết: " + e.getResponseBodyAsString(), e);
+        } catch (RestClientException e) {
+            // Loi mang / timeout / phan hoi la: ghi log de doan nguyen nhan that.
+            log.error("Khong goi duoc Gemini API: {}", e.getMessage());
+            throw new GeminiException("Không gọi được Gemini API (" + e.getMessage()
+                    + "). Kiểm tra mạng, API key và thử lại.", e);
         }
         if (raw == null || raw.isBlank()) {
-            throw new GeminiException("Gemini tra ve phan hoi rong.");
+            throw new GeminiException("Gemini trả về phản hồi rỗng.");
         }
         try {
             JsonNode root = objectMapper.readTree(raw);
             JsonNode error = root.get("error");
             if (error != null) {
-                throw new GeminiException("Gemini API bao loi: " + error.path("message").asText());
+                throw new GeminiException("Gemini API báo lỗi: " + error.path("message").asText());
             }
             String text = root.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText(null);
             if (text == null || text.isBlank()) {
-                throw new GeminiException("Gemini khong tra ve noi dung goi y gia.");
+                throw new GeminiException("Gemini không trả về nội dung gợi ý giá.");
             }
             return objectMapper.readValue(stripCodeFences(text), PriceSuggestion.class);
         } catch (GeminiException e) {
             throw e;
         } catch (Exception e) {
             log.error("Khong phan tich duoc JSON goi y gia tu Gemini: {}", raw, e);
-            throw new GeminiException("Khong phan tich duoc ket qua JSON goi y gia tu Gemini.", e);
+            throw new GeminiException("Không phân tích được kết quả JSON gợi ý giá từ Gemini.", e);
         }
     }
 
@@ -261,14 +286,15 @@ public class GeminiService {
 
     private List<Map<String, Object>> buildParts(List<ReferencePayload> references,
                                                  List<String> baselineBase64,
-                                                 List<String> customerBase64) {
+                                                 List<String> customerBase64,
+                                                 String customerNote) {
         List<Map<String, Object>> parts = new ArrayList<>();
-        parts.add(Map.of("text", "Duoi day la KHO ANH MAU DU TRU, ANH GOC CUA XE va ANH KHACH GUI. "
-                + "Hay tuan thu dung System Prompt: kiem tra hop le truoc, roi moi danh gia thiet hai."));
+        parts.add(Map.of("text", "Dưới đây là KHO ẢNH MẪU DỰ TRỮ, ẢNH GỐC CỦA XE và ẢNH KHÁCH GỬI. "
+                + "Hãy tuân thủ đúng System Prompt: kiểm tra hợp lệ trước, rồi mới đánh giá thiệt hại."));
 
         for (ReferencePayload ref : references) {
             ReferenceDamage r = ref.reference();
-            String label = String.format("[MAU - %s - %s - Muc %d (%s) - Gia tham chieu %,d VND] Mo ta: %s",
+            String label = String.format("[MẪU - %s - %s - Mức %d (%s) - Giá tham chiếu %,d VND] Mô tả: %s",
                     r.getReferenceId(), r.getPartName(), r.getSeverityLevel(),
                     r.getSeverityLabel(), r.getStandardPriceVnd(), r.getDescription());
             parts.add(Map.of("text", label));
@@ -276,13 +302,17 @@ public class GeminiService {
         }
 
         for (int i = 0; i < baselineBase64.size(); i++) {
-            parts.add(Map.of("text", "[ANH GOC CUA XE " + (i + 1) + "] - Anh xe luc mua bao hiem, xe chua bi hu hai. "
-                    + "Dung de doi chieu: vet nao da co san trong anh goc thi KHONG phai thiet hai moi."));
+            parts.add(Map.of("text", "[ẢNH GỐC CỦA XE " + (i + 1) + "] - Ảnh xe lúc mua bảo hiểm, xe chưa bị hư hại. "
+                    + "Dùng để đối chiếu: vết nào đã có sẵn trong ảnh gốc thì KHÔNG phải thiệt hại mới."));
             parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", baselineBase64.get(i))));
         }
 
+        if (customerNote != null && !customerNote.isBlank()) {
+            parts.add(Map.of("text", "[MÔ TẢ CỦA KHÁCH HÀNG VỀ VỤ VIỆC]: " + customerNote));
+        }
+
         for (int i = 0; i < customerBase64.size(); i++) {
-            parts.add(Map.of("text", "[ANH KHACH " + (i + 1) + "]"));
+            parts.add(Map.of("text", "[ẢNH KHÁCH " + (i + 1) + "]"));
             parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", customerBase64.get(i))));
         }
         return parts;
@@ -290,53 +320,57 @@ public class GeminiService {
 
     private String buildSystemPrompt(CustomerVehicle vehicle, List<String> blurryHints) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Ban la chuyen gia giam dinh thiet hai xe co gioi cho cong ty bao hiem. ");
-        sb.append("Nhiem vu: danh gia thiet hai cua 1 chiec xe tu anh khach gui, doi chieu voi Kho anh mau du tru, ");
-        sb.append("de xuat muc boi thuong hop ly. Tra loi HOAN TOAN bang tieng Viet, chi theo dung JSON schema da cho, ");
-        sb.append("khong them markdown hay giai thich ngoai JSON.\n\n");
+        sb.append("Bạn là chuyên gia giám định thiệt hại xe cơ giới cho công ty bảo hiểm. ");
+        sb.append("Nhiệm vụ: đánh giá thiệt hại của 1 chiếc xe từ ảnh khách gửi, đối chiếu với Kho ảnh mẫu dự trữ, ");
+        sb.append("đề xuất mức bồi thường hợp lý. Trả lời HOÀN TOÀN bằng tiếng Việt có dấu, chỉ theo đúng JSON schema đã cho, ");
+        sb.append("không thêm markdown hay giải thích ngoài JSON. Tất cả các trường văn bản trong JSON (assessmentSummary, observedCondition, ");
+        sb.append("referenceComparisonNote, humanReviewReason, issues, missingPhotos) đều phải viết bằng tiếng Việt có dấu đầy đủ.\n\n");
 
-        sb.append("THONG TIN XE GOC (ho so bao hiem): bien so ").append(vehicle.getLicensePlate())
-                .append(", loai xe ").append(vehicle.getVehicleType());
-        if (vehicle.getBrand() != null) sb.append(", hang ").append(vehicle.getBrand());
+        sb.append("THÔNG TIN XE GỐC (hồ sơ bảo hiểm): biển số ").append(vehicle.getLicensePlate())
+                .append(", loại xe ").append(vehicle.getVehicleType());
+        if (vehicle.getBrand() != null) sb.append(", hãng ").append(vehicle.getBrand());
         if (vehicle.getModel() != null) sb.append(" ").append(vehicle.getModel());
-        if (vehicle.getYear() > 0) sb.append(", nam ").append(vehicle.getYear());
-        sb.append(", mau goc ").append(vehicle.getColor()).append(".\n\n");
+        if (vehicle.getYear() > 0) sb.append(", năm ").append(vehicle.getYear());
+        sb.append(", màu gốc ").append(vehicle.getColor()).append(".\n\n");
 
         if (blurryHints != null && !blurryHints.isEmpty()) {
-            sb.append("CANH BAO TU HE THONG KIEM TRA ANH: ").append(String.join("; ", blurryHints)).append("\n\n");
+            sb.append("CẢNH BÁO TỪ HỆ THỐNG KIỂM TRA ẢNH: ").append(String.join("; ", blurryHints)).append("\n\n");
         }
 
-        sb.append("BUOC 1 - KIEM TRA HOP LE (VALIDATION GATE, lam truoc moi thu, phai PHAN BIEN thang than):\n");
-        sb.append("a) Anh co phai la anh o to khong? Neu co anh khong phai o to (nguoi, nha cua, do vat, anh mang...), validation.status = REJECTED.\n");
-        sb.append("a2) Anh chup giay to tuy than (CCCD/CMND, giay phep lai xe, giay dang ky xe) thi validation.status = REJECTED: he thong KHONG thu thap CCCD/CMND, khong can anh giay to. Bien so trong anh chi dung de doi chieu danh tinh, khong hien thi lai trong ket qua.\n");
-        sb.append("b) Anh co du net de nhan dien khong? Anh mo, toi, choi sang, chup qua xa hoac rung tay khong thay ro vet hu hai -> validation.status = NEEDS_MORE_INFO, ghi ro anh so may va van de.\n");
-        sb.append("c) Anh co du de danh gia khong? Bo anh toi thieu: 4 goc ngoai that (truoc, sau, suon trai, suon phai) + cop + bien so/VIN + can canh tung vet. "
-                + "KHONG can anh noi that. Thieu goc nao thi liet ke vao missingPhotos va validation.status = NEEDS_MORE_INFO.\n");
-        sb.append("d) Dung xe khong? So mau xe, loai xe, bien so trong anh khach voi thong tin xe goc va anh goc. Khac mau, khac loai xe, bien so khac -> validation.status = REJECTED, ghi ly do.\n");
-        sb.append("e) Vet hu hai da co san trong ANH GOC thi KHONG phai thiet hai moi: khong tinh tien cho vet do, ghi chu trong assessmentSummary.\n");
-        sb.append("Neu validation.status != OK: damages = [], totalCompensationVnd = 0, requiresHumanReview = false (tru REJECTED thi ghi ro ly do tu choi). "
-                + "KHONG duoc doan mo hay danh gia khi anh khong du yeu cau.\n\n");
+        sb.append("MÔ TẢ CỦA KHÁCH HÀNG (nếu có, ở phần [MÔ TẢ CỦA KHÁCH HÀNG VỀ VỤ VIỆC]): dùng để hiểu bối cảnh vụ việc ");
+        sb.append("(diễn biến, vị trí va chạm), nhưng mức độ hư hại và giá vẫn phải căn cứ vào ẢNH — mô tả không thay thế bằng chứng hình ảnh.\n\n");
 
-        sb.append("BUOC 2 - DANH GIA THIET HAI (chi lam khi validation.status = OK):\n");
-        sb.append("1) CHONG TRUNG LAP: khach chup 1 xe tu nhieu goc; cung 1 vet hu hai xuat hien o nhieu anh chi duoc tinh boi thuong 1 LAN DUY NHAT. Gop cac anh cung vet truoc khi tinh tien.\n");
-        sb.append("2) DOI CHIEU CHUAN XAC: voi moi vet hu hai, so bo phan + muc do voi tung anh mau, chon matchedReferenceId co muc do tuong duong nhat, "
-                + "giai thich ngan gon trong referenceComparisonNote. Neu khong co anh mau nao tuong duong, de matchedReferenceId = null, "
-                + "uoc luong gia theo mo ta va dat requiresHumanReview = true.\n");
-        sb.append("3) CO CHE AN TOAN: neu xe hu hai qua nang, nat khung gam, tui khi bung nhieu, hoac vuot ngoai pham vi bo anh mau, "
-                + "dat requiresHumanReview = true va ghi ro humanReviewReason de giam dinh vien kiem tra truc tiep.\n");
-        sb.append("4) confidenceScore: 0.0-1.0 theo do ro rang cua vet tren anh. Vet mo hoac chi thay lo mo thi ha diem manh tay.\n");
-        sb.append("5) totalCompensationVnd = tong estimatedCostVnd cua cac vet (sau khi da gop trung lap).\n");
-        sb.append("6) DINH GIA THEO BANG GIA THAM CHIEU (QUAN TRONG NHAT - doc ky tung dong):\n");
+        sb.append("BƯỚC 1 - KIỂM TRA HỢP LỆ (VALIDATION GATE, làm trước mọi thứ, phải PHẢN BIỆN thẳng thắn):\n");
+        sb.append("a) Ảnh có phải là ảnh ô tô không? Nếu có ảnh không phải ô tô (người, nhà cửa, đồ vật, ảnh mạng...), validation.status = REJECTED.\n");
+        sb.append("a2) Ảnh chụp giấy tờ tùy thân (CCCD/CMND, giấy phép lái xe, giấy đăng ký xe) thì validation.status = REJECTED: hệ thống KHÔNG thu thập CCCD/CMND, không cần ảnh giấy tờ. Biển số trong ảnh chỉ dùng để đối chiếu danh tính, không hiển thị lại trong kết quả.\n");
+        sb.append("b) Ảnh có đủ nét để nhận diện không? Ảnh mờ, tối, chói sáng, chụp quá xa hoặc rung tay không thấy rõ vết hư hại -> validation.status = NEEDS_MORE_INFO, ghi rõ ảnh số mấy và vấn đề.\n");
+        sb.append("c) Ảnh có đủ để đánh giá không? Bộ ảnh tối thiểu: 4 góc ngoại thất (trước, sau, sườn trái, sườn phải) + cốp + biển số/VIN + cận cảnh từng vết. "
+                + "KHÔNG cần ảnh nội thất. Thiếu góc nào thì liệt kê vào missingPhotos và validation.status = NEEDS_MORE_INFO.\n");
+        sb.append("d) Đúng xe không? So màu xe, loại xe, biển số trong ảnh khách với thông tin xe gốc và ảnh gốc. Khác màu, khác loại xe, biển số khác -> validation.status = REJECTED, ghi lý do.\n");
+        sb.append("e) Vết hư hại đã có sẵn trong ẢNH GỐC thì KHÔNG phải thiệt hại mới: không tính tiền cho vết đó, ghi chú trong assessmentSummary.\n");
+        sb.append("Nếu validation.status != OK: damages = [], totalCompensationVnd = 0, requiresHumanReview = false (trừ REJECTED thì ghi rõ lý do từ chối). "
+                + "KHÔNG được đoán mò hay đánh giá khi ảnh không đủ yêu cầu.\n\n");
+
+        sb.append("BƯỚC 2 - ĐÁNH GIÁ THIỆT HẠI (chỉ làm khi validation.status = OK):\n");
+        sb.append("1) CHỐNG TRÙNG LẶP: khách chụp 1 xe từ nhiều góc; cùng 1 vết hư hại xuất hiện ở nhiều ảnh chỉ được tính bồi thường 1 LẦN DUY NHẤT. Gộp các ảnh cùng vết trước khi tính tiền.\n");
+        sb.append("2) ĐỐI CHIẾU CHUẨN XÁC: với mỗi vết hư hại, so bộ phận + mức độ với từng ảnh mẫu, chọn matchedReferenceId có mức độ tương đương nhất, "
+                + "giải thích ngắn gọn trong referenceComparisonNote. Nếu không có ảnh mẫu nào tương đương, để matchedReferenceId = null, "
+                + "ước lượng giá theo mô tả và đặt requiresHumanReview = true.\n");
+        sb.append("3) CƠ CHẾ AN TOÀN: nếu xe hư hại quá nặng, nát khung gầm, túi khí bung nhiều, hoặc vượt ngoài phạm vi bộ ảnh mẫu, "
+                + "đặt requiresHumanReview = true và ghi rõ humanReviewReason để giám định viên kiểm tra trực tiếp.\n");
+        sb.append("4) confidenceScore: 0.0-1.0 theo độ rõ ràng của vết trên ảnh. Vết mờ hoặc chỉ thấy lờ mờ thì hạ điểm mạnh tay.\n");
+        sb.append("5) totalCompensationVnd = tổng estimatedCostVnd của các vết (sau khi đã gộp trùng lặp).\n");
+        sb.append("6) ĐỊNH GIÁ THEO BẢNG GIÁ THAM CHIẾU (QUAN TRỌNG NHẤT - đọc kỹ từng dòng):\n");
         sb.append(priceTableService.formatForPrompt());
-        sb.append("   a) Anh mau REF_xx chi dung de NHAN DIEN bo phan + muc do (so sanh hinh anh). Gia ghi tren moi anh mau la gia tham chieu cua case do, "
-                + "co the la TONG TIEN CA VU cua case MoMo - KHONG duoc lay so do lam estimatedCostVnd cua 1 vet.\n");
-        sb.append("   b) Voi moi vet: xac dinh bo phan + muc do -> tra BANG GIA tren -> chon MUC GIA HOP LI NHAT trong khoang: gan min neu hu hai nhe trong muc do, "
-                + "giua khoang neu trung binh, gan max neu nang. Ghi ro cach chon trong referenceComparisonNote.\n");
-        sb.append("   c) Gia KHONG phu thuoc hang/model xe: cung bo phan + cung muc do thi cung gia bang, du la Seltos hay Everest. "
-                + "Xe sang/nhap khau, den LED/laser/adaptive, cam bien ADAS, khung suon bien dang nang: neu vuot bang thi giai thich ro va dat requiresHumanReview = true, KHONG tu nhan he so.\n");
-        sb.append("   d) Neu bo phan khong co trong bang: uoc luong theo muc tuong duong gan nhat, ghi ro trong referenceComparisonNote va dat requiresHumanReview = true.\n");
-        sb.append("   e) Kiem tra tong: so totalCompensationVnd voi moc kiem tra tong trong bang. Vuot xa moc thi giai thich ro va dat requiresHumanReview = true. "
-                + "He thong se tu tru muc mien thuong sau khi nhan ket qua, Gemini chi can bao gia tong thiet hai goc.\n");
+        sb.append("   a) Ảnh mẫu REF_xx chỉ dùng để NHẬN DIỆN bộ phận + mức độ (so sánh hình ảnh). Giá ghi trên mỗi ảnh mẫu là giá tham chiếu của case đó, "
+                + "có thể là TỔNG TIỀN CẢ VỤ của case MoMo - KHÔNG được lấy số đó làm estimatedCostVnd của 1 vết.\n");
+        sb.append("   b) Với mỗi vết: xác định bộ phận + mức độ -> tra BẢNG GIÁ trên -> chọn MỨC GIÁ HỢP LÍ NHẤT trong khoảng: gần min nếu hư hại nhẹ trong mức độ, "
+                + "giữa khoảng nếu trung bình, gần max nếu nặng. Ghi rõ cách chọn trong referenceComparisonNote.\n");
+        sb.append("   c) Giá KHÔNG phụ thuộc hãng/model xe: cùng bộ phận + cùng mức độ thì cùng giá bảng, dù là Seltos hay Everest. "
+                + "Xe sang/nhập khẩu, đèn LED/laser/adaptive, cảm biến ADAS, khung sườn biến dạng nặng: nếu vượt bảng thì giải thích rõ và đặt requiresHumanReview = true, KHÔNG tự nhân hệ số.\n");
+        sb.append("   d) Nếu bộ phận không có trong bảng: ước lượng theo mức tương đương gần nhất, ghi rõ trong referenceComparisonNote và đặt requiresHumanReview = true.\n");
+        sb.append("   e) Kiểm tra tổng: so totalCompensationVnd với mốc kiểm tra tổng trong bảng. Vượt xa mốc thì giải thích rõ và đặt requiresHumanReview = true. "
+                + "Hệ thống sẽ tự trừ mức miễn thường sau khi nhận kết quả, Gemini chỉ cần báo giá tổng thiệt hại gốc.\n");
         return sb.toString();
     }
 

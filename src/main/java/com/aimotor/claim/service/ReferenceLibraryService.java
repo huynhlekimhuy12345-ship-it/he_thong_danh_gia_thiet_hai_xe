@@ -26,7 +26,7 @@ import java.util.List;
 /**
  * Quan ly Kho anh mau du tru: them/xoa/lay danh sach + nap anh gui Gemini.
  *
- * Anh mau MOI chi vao kho bang 2 duong:
+ * Ảnh mau MOI chi vao kho bang 2 duong:
  * (1) Tu ho so tham dinh cua khach: sau khi AI dinh gia xong, chu he thong bam
  * "Luu vao kho mau" — toan bo anh + thong tin xe lien quan duoc luu lai de
  * doi chieu cho cac vu tuong tu sau nay (ke ca khac loai xe).
@@ -75,28 +75,28 @@ public class ReferenceLibraryService {
      * mau) + tinh trang quan sat + ma ho so goc de doi soat. Muc do lay theo
      * muc do cua anh mau ma AI doi chieu gan nhat (mac dinh Muc 2 neu khong co).
      * Vet nao gia 0 thi luu o dang nhap (can bo sung gia sau).
-     * Anh goc duoc COPY sang storage/reference-damages/ de anh mau tu dung,
-     * khong phu thuoc vao thu muc ho so cua khach. Anh da co trong kho (trung
+     * Ảnh goc duoc COPY sang storage/reference-damages/ de anh mau tu dung,
+     * khong phu thuoc vao thu muc ho so cua khach. Ảnh da co trong kho (trung
      * noi dung, kiem tra bang SHA-256) thi bo qua, khong luu trung.
      */
     public List<ReferenceDamage> saveClaimToLibrary(String claimId) throws IOException {
         ClaimAssessment claim = claimRepository.findById(claimId)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay ho so " + claimId));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hồ sơ " + claimId));
         if (claim.getDamages() == null || claim.getDamages().isEmpty()) {
-            throw new IllegalStateException("Ho so nay khong co vet hu hai de luu vao kho mau.");
+            throw new IllegalStateException("Hồ sơ này không có vết hư hại để lưu vào kho mẫu.");
         }
         List<String> photos = claim.getClaimPhotoPaths() == null ? List.of() : claim.getClaimPhotoPaths();
         if (photos.isEmpty()) {
-            throw new IllegalStateException("Ho so nay khong co anh de luu vao kho mau.");
+            throw new IllegalStateException("Hồ sơ này không có ảnh để lưu vào kho mẫu.");
         }
         CustomerVehicle vehicle = claim.getVehicleId() == null ? null
                 : vehicleRepository.findById(claim.getVehicleId()).orElse(null);
         String vehicleInfo = vehicle == null
-                ? "Xe chua ro thong tin"
+                ? "Xe chưa rõ thông tin"
                 : (vehicle.getVehicleType() + " " + nullToEmpty(vehicle.getBrand()) + " "
                    + nullToEmpty(vehicle.getModel())
                    + (vehicle.getYear() == 0 ? "" : " " + vehicle.getYear())
-                   + " (mau " + vehicle.getColor() + ")").trim().replaceAll(" +", " ");
+                   + " (màu " + vehicle.getColor() + ")").trim().replaceAll(" +", " ");
         Files.createDirectories(Paths.get(referenceDir));
         java.util.Set<String> knownHashes = repository.findAll().stream()
                 .map(ReferenceDamage::getImageHash)
@@ -138,12 +138,15 @@ public class ReferenceLibraryService {
             String severityLabel = severityLevel == 1 ? "Mức 1: Xước nhẹ"
                     : severityLevel == 2 ? "Mức 2: Móp vừa"
                     : "Mức 3: Vỡ/Biến dạng nặng";
-            StringBuilder desc = new StringBuilder("Case thuc te — ").append(vehicleInfo)
+            StringBuilder desc = new StringBuilder("Case thực tế — ").append(vehicleInfo)
                     .append(": ").append(d.getObservedCondition() == null ? "" : d.getObservedCondition())
-                    .append(" (ho so ").append(claim.getClaimId())
-                    .append(", boi thuong de xuat ").append(d.getEstimatedCostVnd()).append(" VND).");
+                    .append(" (hồ sơ ").append(claim.getClaimId())
+                    .append(", bồi thường đề xuất ").append(d.getEstimatedCostVnd()).append(" VND).");
             if (d.getReferenceComparisonNote() != null && !d.getReferenceComparisonNote().isBlank()) {
-                desc.append(" Doi chieu: ").append(d.getReferenceComparisonNote());
+                desc.append(" Đối chiếu: ").append(d.getReferenceComparisonNote());
+            }
+            if (claim.getCustomerNote() != null && !claim.getCustomerNote().isBlank()) {
+                desc.append(" Khách mô tả: ").append(claim.getCustomerNote());
             }
             ReferenceDamage ref = new ReferenceDamage(
                     nextReferenceId(), d.getPartName(), severityLevel, severityLabel,
@@ -154,7 +157,7 @@ public class ReferenceLibraryService {
             knownHashes.add(hash);
         }
         if (saved.isEmpty()) {
-            throw new IllegalStateException("Khong luu duoc anh mau nao (anh da co trong kho hoac thieu file anh).");
+            throw new IllegalStateException("Không lưu được ảnh mẫu nào (ảnh đã có trong kho hoặc thiếu file ảnh).");
         }
         return saved;
     }
@@ -168,7 +171,7 @@ public class ReferenceLibraryService {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (Exception e) {
-            throw new IllegalStateException("Khong tinh duoc hash anh.", e);
+            throw new IllegalStateException("Không tính được hash ảnh.", e);
         }
     }
 
@@ -186,7 +189,7 @@ public class ReferenceLibraryService {
     /**
      * Quet thu muc anh mau: file anh nao chua co trong DB se duoc nhan vao kho
      * o dang NHAP (needsMetadata = true) voi ma REF_xx tiep theo.
-     * Anh nhap CHUA co gia chuan nen tam thoi khong dung de tham dinh.
+     * Ảnh nhap CHUA co gia chuan nen tam thoi khong dung de tham dinh.
      * Neu co file metadata kem theo (cung ten file, duoi .json, VD:
      * ref-05-seltos-thuy-kich.json) voi partName + standardPriceVnd > 0
      * thi anh duoc nhan thang vao kho chinh thuc, khong can bo sung tay.
@@ -287,7 +290,7 @@ public class ReferenceLibraryService {
     public ReferenceDamage update(String id, String partName, int severityLevel,
                                   String severityLabel, String description, long standardPriceVnd) {
         ReferenceDamage ref = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay anh mau " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ảnh mẫu " + id));
         if (partName != null && !partName.isBlank()) ref.setPartName(partName.trim());
         ref.setSeverityLevel(severityLevel);
         if (severityLabel != null) ref.setSeverityLabel(severityLabel);
@@ -300,10 +303,10 @@ public class ReferenceLibraryService {
     /** Goi y gia chuan cho 1 anh mau (thuong la anh nhap) dua tren anh mau cu da co gia. */
     public GeminiService.PriceSuggestion suggestPriceFor(String id) throws IOException {
         ReferenceDamage ref = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay anh mau " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ảnh mẫu " + id));
         List<GeminiService.ReferencePayload> payloads = loadPayloads();
         if (payloads.isEmpty()) {
-            throw new IllegalStateException("Chua co anh mau cu nao co gia chuan de doi chieu.");
+            throw new IllegalStateException("Chưa có ảnh mẫu cũ nào có giá chuẩn để đối chiếu.");
         }
         String newImageBase64 = imageService.fileToBase64(Paths.get(ref.getImagePath()));
         return geminiService.suggestPrice(newImageBase64, payloads);
@@ -313,7 +316,7 @@ public class ReferenceLibraryService {
     public List<GeminiService.ReferencePayload> loadPayloads() throws IOException {
         List<GeminiService.ReferencePayload> payloads = new ArrayList<>();
         for (ReferenceDamage ref : repository.findAll()) {
-            // Anh nhap chua co metadata (gia 0) thi bo qua, tranh AI dinh gia 0 dong.
+            // Ảnh nhap chua co metadata (gia 0) thi bo qua, tranh AI dinh gia 0 dong.
             if (ref.isNeedsMetadata()) {
                 continue;
             }

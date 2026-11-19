@@ -34,14 +34,14 @@ public class ImagePreprocessingService {
 
     public void validateImage(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File anh rong.");
+            throw new IllegalArgumentException("File ảnh rỗng.");
         }
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Anh " + file.getOriginalFilename() + " vuot qua 10MB.");
+            throw new IllegalArgumentException("Ảnh " + file.getOriginalFilename() + " vượt quá 10MB.");
         }
         String contentType = file.getContentType();
         if (contentType == null || !contentType.toLowerCase().startsWith("image/")) {
-            throw new IllegalArgumentException("File " + file.getOriginalFilename() + " khong phai la anh.");
+            throw new IllegalArgumentException("File " + file.getOriginalFilename() + " không phải là ảnh.");
         }
     }
 
@@ -49,7 +49,7 @@ public class ImagePreprocessingService {
     public byte[] toJpegBytes(byte[] originalBytes) throws IOException {
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(originalBytes));
         if (image == null) {
-            throw new IllegalArgumentException("Khong doc duoc file anh (dinh dang khong ho tro).");
+            throw new IllegalArgumentException("Không đọc được file ảnh (định dạng không hỗ trợ).");
         }
         BufferedImage processed = image;
         if (image.getWidth() > maxWidth) {
