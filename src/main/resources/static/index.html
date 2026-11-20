@@ -511,7 +511,7 @@ function renderResult(r){
   if(r.customerNote) html += '<p style="font-size:14px;line-height:1.7;margin:12px 0">📝 <b>Mô tả của khách:</b> '+esc(r.customerNote)+'</p>';
 
   if(r.damages && r.damages.length){
-    html += '<table><thead><tr><th>Bộ phận</th><th>Tình trạng</th><th>Đối chiếu mẫu</th><th>Chi phí ước tính</th><th>Độ tin cậy</th></tr></thead><tbody>';
+    html += '<table><thead><tr><th>Bộ phận</th><th>Tình trạng</th><th>Đối chiếu mẫu</th><th>Chi phí ước tính</th><th>Độ rõ của ảnh</th></tr></thead><tbody>';
     for(const d of r.damages){
       html += '<tr><td><b>'+d.partName+'</b></td><td>'+d.observedCondition+'</td>'
         + '<td>'+(d.matchedReferenceId?('<span class="pill ok">'+d.matchedReferenceId+'</span><br><span class="muted">'+(d.referenceComparisonNote||'')+'</span>'):'<span class="muted">Không có mẫu tương đương</span>')+'</td>'

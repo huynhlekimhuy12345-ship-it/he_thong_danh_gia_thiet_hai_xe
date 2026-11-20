@@ -408,9 +408,11 @@ public class GeminiService {
 
         for (ReferencePayload ref : references) {
             ReferenceDamage r = ref.reference();
-            String label = String.format("[MẪU - %s - %s - Mức %d (%s) - Giá tham chiếu %,d VND] Mô tả: %s",
+            // Nhãn gửi AI KHÔNG kèm giá: giá mẫu (thường là tổng tiền cả vụ) mà lọt vào
+            // mắt AI thì vẫn neo giá dù prompt đã cấm dùng. Giá chỉ lấy từ bảng giá.
+            String label = String.format("[MẪU - %s - %s - Mức %d (%s)] Mô tả: %s",
                     r.getReferenceId(), r.getPartName(), r.getSeverityLevel(),
-                    r.getSeverityLabel(), r.getStandardPriceVnd(), r.getDescription());
+                    r.getSeverityLabel(), r.getDescription());
             parts.add(Map.of("text", label));
             parts.add(Map.of("inline_data", Map.of("mime_type", "image/jpeg", "data", ref.base64Jpeg())));
         }
@@ -477,8 +479,8 @@ public class GeminiService {
         sb.append("5) totalCompensationVnd = tổng estimatedCostVnd của các vết (sau khi đã gộp trùng lặp).\n");
         sb.append("6) ĐỊNH GIÁ THEO BẢNG GIÁ THAM CHIẾU (QUAN TRỌNG NHẤT - đọc kỹ từng dòng):\n");
         sb.append(priceTableService.formatForPrompt());
-        sb.append("   a) Ảnh mẫu REF_xx chỉ dùng để NHẬN DIỆN bộ phận + mức độ (so sánh hình ảnh). Giá ghi trên mỗi ảnh mẫu là giá tham chiếu của case đó, "
-                + "có thể là TỔNG TIỀN CẢ VỤ của case MoMo - KHÔNG được lấy số đó làm estimatedCostVnd của 1 vết.\n");
+        sb.append("   a) Ảnh mẫu REF_xx chỉ dùng để NHẬN DIỆN bộ phận + mức độ (so sánh hình ảnh). Nhãn ảnh mẫu KHÔNG kèm giá — "
+                + "giá của case mẫu (thường là TỔNG TIỀN CẢ VỤ) không được dùng làm estimatedCostVnd của 1 vết.\n");
         sb.append("   b) Với mỗi vết: xác định bộ phận + mức độ (severityLevel) -> tra BẢNG GIÁ trên -> estimatedCostVnd CHỈ được chọn 1 trong 3 nấc: "
                 + "giá MIN của khoảng (hư hại nhẹ trong mức độ), giá GIỮA khoảng (trung bình), giá MAX của khoảng (nặng trong mức độ). "
                 + "KHÔNG chọn số khác ngoài 3 nấc này. Ghi rõ nấc đã chọn (min/giữa/max) trong referenceComparisonNote.\n");
