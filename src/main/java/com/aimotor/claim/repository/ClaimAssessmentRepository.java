@@ -40,6 +40,21 @@ public class ClaimAssessmentRepository {
         }
     }
 
+    /** Tim theo ma ho so nghiep vu (VD CLM-20261120-3853) de mo chi tiet tu lich su / tra cuu. */
+    public Optional<ClaimAssessment> findByClaimId(String claimId) {
+        if (claimId == null) return Optional.empty();
+        try (var conn = db.newConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT * FROM claim_assessments WHERE claim_id = ?")) {
+            ps.setString(1, claimId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Không tìm được hồ sơ thẩm định theo mã hồ sơ trong SQLite.", e);
+        }
+    }
+
     public List<ClaimAssessment> findByLicensePlateOrderByCreatedAtDesc(String licensePlate) {
         try (var conn = db.newConnection();
              PreparedStatement ps = conn.prepareStatement(
@@ -80,9 +95,9 @@ public class ClaimAssessmentRepository {
                     + " missing_photos = ?, identity_json = ?, damages_json = ?, claim_photo_paths = ?,"
                     + " total_compensation_vnd = ?, deductible_vnd = ?, net_compensation_vnd = ?,"
                     + " requires_human_review = ?, human_review_reason = ?, assessment_summary = ?,"
-                    + " customer_note = ?, created_at = ? WHERE id = ?")) {
+                    + " customer_note = ?, consensus_note = ?, created_at = ? WHERE id = ?")) {
                 bind(ps, a);
-                ps.setString(20, a.getId());
+                ps.setString(21, a.getId());
                 if (ps.executeUpdate() > 0) return a;
             }
             try (PreparedStatement ps = conn.prepareStatement(
@@ -91,10 +106,10 @@ public class ClaimAssessmentRepository {
                     + " missing_photos, identity_json, damages_json, claim_photo_paths,"
                     + " total_compensation_vnd, deductible_vnd, net_compensation_vnd,"
                     + " requires_human_review, human_review_reason, assessment_summary,"
-                    + " customer_note, created_at, id)"
-                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                    + " customer_note, consensus_note, created_at, id)"
+                    + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                 bind(ps, a);
-                ps.setString(20, a.getId());
+                ps.setString(21, a.getId());
                 ps.executeUpdate();
             }
             return a;
@@ -122,7 +137,8 @@ public class ClaimAssessmentRepository {
         ps.setString(16, a.getHumanReviewReason());
         ps.setString(17, a.getAssessmentSummary());
         ps.setString(18, a.getCustomerNote());
-        ps.setString(19, a.getCreatedAt() == null ? Instant.now().toString() : a.getCreatedAt().toString());
+        ps.setString(19, a.getConsensusNote());
+        ps.setString(20, a.getCreatedAt() == null ? Instant.now().toString() : a.getCreatedAt().toString());
     }
 
     private ClaimAssessment mapRow(ResultSet rs) throws Exception {
@@ -150,6 +166,7 @@ public class ClaimAssessmentRepository {
         a.setHumanReviewReason(rs.getString("human_review_reason"));
         a.setAssessmentSummary(rs.getString("assessment_summary"));
         a.setCustomerNote(rs.getString("customer_note"));
+        a.setConsensusNote(rs.getString("consensus_note"));
         String created = rs.getString("created_at");
         a.setCreatedAt(created == null || created.isBlank() ? Instant.now() : Instant.parse(created));
         return a;

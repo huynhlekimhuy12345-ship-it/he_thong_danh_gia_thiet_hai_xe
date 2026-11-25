@@ -157,12 +157,15 @@ không trộn với nội dung đã xác minh.
 
 - Gửi 3 lần giống hệt nhau (cùng bộ ảnh + prompt, nhiệt độ 0): ảnh mẫu có nhãn
   + ảnh gốc của xe + ảnh khách gửi + system prompt. Ép trả về
-  `application/json` theo `responseSchema` (không có markdown). Lấy lần chạy
-  có tổng ở giữa (trung vị); giá từng vết chốt theo 3 nấc của bảng giá
-  (min/giữa/max) bằng `PriceTableService.snapToAnchor`. Chỉ 1/3 lần OK thì
-  chuyển giám định viên. Ghi chú kiểm chứng hiện ở kết quả (`consensusNote`).
-  Nguồn: code: `GeminiService.java` (`assess` + `mergeConsensus` +
-  `snapToAnchor` trong `PriceTableService.java`).
+  `application/json` theo `responseSchema` (không có markdown). Hợp nhất bằng
+  bỏ phiếu theo từng vết (`mergeConsensus`): gộp vết theo bộ phận chuẩn + bên
+  (`PriceTableService.groupKey` — "Cửa sau trái" và "Cánh cửa bên trái" về chung
+  1 nhóm); vết tính tiền khi ít nhất 2/3 lần đều thấy; mức độ + nấc giá
+  (min/giữa/max) lấy theo đa số, chốt lại bằng `snapToAnchor`; vết chỉ 1 lần
+  thấy thì loại + gắn cờ kiểm tra tay. Chỉ 1/3 lần OK thì chuyển giám định viên.
+  Ghi chú kiểm chứng hiện ở kết quả (`consensusNote`).
+  Nguồn: code: `GeminiService.java` (`assess` + `mergeConsensus`);
+  `PriceTableService.java` (`groupKey`, `canonicalPart`, `anchorsFor`).
 - System prompt bắt AI làm 2 bước. **Bước 1 — cổng kiểm tra (validation gate),
   AI phải phản biện thẳng thắn:**
   - a) Ảnh có phải ảnh ô tô không? Không phải → REJECTED.
@@ -551,6 +554,7 @@ Nguồn: code: `AssessmentController.java`, `VehicleController.java`,
 | `POST /api/assessments` (multipart) | Gửi hồ sơ thẩm định: biển số + SĐT + loại xe + nhiều ảnh thiệt hại |
 | `POST /api/assessments/{id}/save-to-library` | Lưu hồ sơ đã thẩm định vào kho mẫu: mỗi vết → 1 ảnh mẫu (ảnh khách gửi + bộ phận + mức độ + giá ước tính + thông tin xe), để đối chiếu vụ tương tự sau này kể cả khác loại xe |
 | `GET /api/assessments` | Lịch sử thẩm định |
+| `GET /api/assessments/{id}` | Xem chi tiết 1 hồ sơ (nhận cả id nội bộ lẫn mã hồ sơ CLM-...): đầy đủ vết hư hại, tổng tiền, ghi chú kiểm chứng |
 | `GET /api/assessments/plate/{plate}` | Lịch sử theo biển số |
 | `GET /api/assessments/lookup?licensePlate&customerPhone&vehicleType` | Tra cứu tình trạng bồi thường |
 | `GET /api/references` | Danh sách ảnh mẫu |

@@ -30,6 +30,9 @@
   .panel.active{display:block;animation:fade .25s ease}
   @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .card{background:var(--card);border:1px solid var(--card-border);border-radius:var(--radius);padding:22px;backdrop-filter:blur(14px);margin-bottom:18px}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:flex-start;justify-content:center;padding:36px 16px;z-index:50;overflow:auto}
+  .modal-card{width:min(920px,100%);margin-bottom:0}
+  .claim-link{color:#34d399;text-decoration:underline;cursor:pointer;white-space:nowrap}
   .card h2{font-family:Sora,sans-serif;font-size:17px;margin-bottom:4px}
   .card p.hint{color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.55}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -482,8 +485,8 @@ $('#btnAssess').addEventListener('click', async ()=>{
   }
 });
 
-function renderResult(r){
-  const box = $('#result');
+function renderResult(r, target){
+  const box = target || $('#result');
   const v = r.validationStatus;
   let bannerCls = 'ok', bannerTitle = '✅ Ảnh hợp lệ — AI đã thẩm định xong.';
   if(v === 'NEEDS_MORE_INFO'){ bannerCls='warn'; bannerTitle='⚠️ Cần bổ sung thêm ảnh / thông tin.'; }
@@ -534,8 +537,24 @@ function renderResult(r){
   }
   html += '</div>';
   box.innerHTML = html;
-  box.scrollIntoView({behavior:'smooth'});
+  if(!target) box.scrollIntoView({behavior:'smooth'});
 }
+
+// ---------- Chi tiet ho so ----------
+// Bam vao ma ho so o lich su / tra cuu de xem lai day du: vet hu hai, tong tien,
+// ghi chu kiem chung 3 lan, ly do can giam dinh vien.
+async function showClaimDetail(key){
+  const modal = $('#claimModal'), box = $('#claimDetail');
+  box.innerHTML = '<span class="muted">Đang tải hồ sơ…</span>';
+  modal.style.display = 'flex';
+  try{
+    const r = await api('/api/assessments/' + encodeURIComponent(key));
+    renderResult(r, box);
+  }catch(e){
+    box.innerHTML = '<div class="banner bad"><b>Không mở được hồ sơ.</b><br>' + e.message + '</div>';
+  }
+}
+function closeClaimDetail(){ $('#claimModal').style.display = 'none'; }
 
 // ---------- Lich su ----------
 async function loadHistory(){
@@ -544,7 +563,7 @@ async function loadHistory(){
     const box = $('#history');
     if(!list.length){ box.innerHTML = '<span class="muted">Chưa có hồ sơ nào.</span>'; return; }
     box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Chủ xe</th><th>Biển số</th><th>Trạng thái</th><th>Bồi thường thực nhận</th><th>Giám định viên</th><th>Kho mẫu</th></tr></thead><tbody>'
-      + list.slice(0,20).map(r=>'<tr><td>'+r.claimId+'</td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
+      + list.slice(0,20).map(r=>'<tr><td><span class="claim-link" title="Bấm để xem chi tiết" onclick="showClaimDetail(\''+r.claimId+'\')">'+r.claimId+'</span></td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
         + '</td><td class="money">'+fmt((r.netCompensationVnd!=null&&r.netCompensationVnd!==undefined)?r.netCompensationVnd:(r.totalCompensationVnd||0))+'</td><td>'
         + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra</span>':'<span class="muted">Không cần</span>')+'</td><td>'
@@ -576,7 +595,7 @@ $('#btnLookup').addEventListener('click', async ()=>{
     const list = await api('/api/assessments/lookup?licensePlate='+encodeURIComponent(plate)+'&customerPhone='+encodeURIComponent(phone)+'&vehicleType='+encodeURIComponent(vtype));
     if(!list.length){ box.innerHTML = '<span class="muted">Xe này chưa có hồ sơ bồi thường nào.</span>'; return; }
     box.innerHTML = '<table><thead><tr><th>Mã hồ sơ</th><th>Chủ xe</th><th>Biển số</th><th>Trạng thái</th><th>Tổng thiệt hại</th><th>Miễn thường</th><th>Bồi thường thực nhận</th><th>Giám định viên</th><th>Ngày gửi</th></tr></thead><tbody>'
-      + list.map(r=>'<tr><td>'+r.claimId+'</td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
+      + list.map(r=>'<tr><td><span class="claim-link" title="Bấm để xem chi tiết" onclick="showClaimDetail(\''+r.claimId+'\')">'+r.claimId+'</span></td><td>'+(r.ownerName||'—')+'</td><td>'+maskPlate(r.licensePlate)+'</td><td>'
         + (r.validationStatus==='OK'?'<span class="pill ok">OK</span>':r.validationStatus==='NEEDS_MORE_INFO'?'<span class="pill warn">Cần bổ sung</span>':'<span class="pill bad">Từ chối</span>')
         + '</td><td class="money">'+fmt(r.totalCompensationVnd||0)+'</td><td class="money">'+fmt(r.deductibleVnd||0)+'</td><td class="money">'+fmt(r.netCompensationVnd||0)+'</td><td>'
         + (r.requiresHumanReview?'<span class="pill warn">Cần kiểm tra'+(r.humanReviewReason?' — '+r.humanReviewReason:'')+'</span>':'<span class="muted">Không cần</span>')
@@ -833,5 +852,11 @@ $('#btnSaveRef').addEventListener('click', async ()=>{
 });
 loadConfig(); loadHistory(); loadVehicles(); loadRefs();
 </script>
+<div id="claimModal" class="overlay" style="display:none" onclick="if(event.target===this)closeClaimDetail()">
+  <div class="card modal-card">
+    <div style="text-align:right"><button class="btn ghost" onclick="closeClaimDetail()">✕ Đóng</button></div>
+    <div id="claimDetail"></div>
+  </div>
+</div>
 </body>
 </html>

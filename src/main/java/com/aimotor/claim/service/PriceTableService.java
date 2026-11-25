@@ -138,6 +138,80 @@ public class PriceTableService {
     }
 
     /**
+     * Tu khoa nhan dien tung bo phan trong bang gia (da bo dau, tach theo tu).
+     * AI goi ten bo phan kieu gi cung duoc ("Cua sau trai", "Canh cua ben phai"...)
+     * mien la chua dung tu khoa — de gop dung vet cua cung 1 bo phan qua cac lan chay.
+     * So theo TU (khong so chuoi con): "canh" khong chua "can", tranh nhan nham.
+     */
+    private static final Map<String, List<String>> PART_KEYWORDS = Map.ofEntries(
+            Map.entry("Cản trước / Cản sau", List.of("can truoc", "can sau", "can")),
+            Map.entry("Cánh cửa", List.of("canh cua", "cua")),
+            Map.entry("Nắp capo", List.of("nap capo", "capo")),
+            Map.entry("Nắp cốp / Đuôi xe", List.of("nap cop", "cop", "duoi xe")),
+            Map.entry("Tai xe / Vè (dè)", List.of("tai xe", "ve", "de")),
+            Map.entry("Đèn pha", List.of("den pha")),
+            Map.entry("Đèn hậu", List.of("den hau")),
+            Map.entry("Kính chắn gió", List.of("kinh chan gio", "kinh")),
+            Map.entry("Gương chiếu hậu", List.of("guong")),
+            Map.entry("Khung sườn / Kết cấu", List.of("khung suon", "khung", "ket cau")),
+            Map.entry("Động cơ (thủy kích)", List.of("dong co", "thuy kich")));
+
+    /** Ten bo phan trong bang gia gan nhat voi ten AI goi (VD "Cua sau trai" -> "Cánh cửa"); khong khop -> null. */
+    public String canonicalPart(String aiPartName) {
+        if (aiPartName == null || aiPartName.isBlank()) return null;
+        List<String> tokens = List.of(normalize(aiPartName).split(" "));
+        for (Map.Entry<String, List<String>> e : PART_KEYWORDS.entrySet()) {
+            for (String kw : e.getValue()) {
+                if (containsTokens(tokens, List.of(kw.split(" ")))) return e.getKey();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Khoa gop vet qua cac lan chay: bo phan chuan + ben (trai/phai/truoc/sau).
+     * "Canh cua ben phai (truoc va sau)" va "Cua phai (truoc va sau)" ve chung 1 khoa;
+     * "Cua truoc phai" va "Cua sau phai" khac nhau nho ben.
+     */
+    public String groupKey(String aiPartName) {
+        String canon = canonicalPart(aiPartName);
+        String base = canon != null ? normalize(canon)
+                : normalize(aiPartName == null ? "" : aiPartName);
+        List<String> tokens = aiPartName == null ? List.of()
+                : List.of(normalize(aiPartName).split(" "));
+        StringBuilder sides = new StringBuilder();
+        for (String s : List.of("trai", "phai", "truoc", "sau")) {
+            if (tokens.contains(s)) {
+                if (sides.length() > 0) sides.append(',');
+                sides.append(s);
+            }
+        }
+        return base + "|" + sides;
+    }
+
+    /** 3 nac gia {min, giua, max} cua o (bo phan x muc do); khong co o tuong ung -> null. */
+    public long[] anchorsFor(String partName, int severityLevel) {
+        if (partName == null || partName.isBlank()) return null;
+        String canon = canonicalPart(partName);
+        for (PriceRow row : rows()) {
+            if (row.severity() != severityLevel) continue;
+            if (canon != null ? row.part().equals(canon) : matchesPart(normalize(partName), row.part())) {
+                long mid = (row.minVnd() + row.maxVnd()) / 2;
+                return new long[]{row.minVnd(), mid, row.maxVnd()};
+            }
+        }
+        return null;
+    }
+
+    private static boolean containsTokens(List<String> tokens, List<String> keyword) {
+        if (keyword.isEmpty() || keyword.size() > tokens.size()) return false;
+        for (int i = 0; i + keyword.size() <= tokens.size(); i++) {
+            if (tokens.subList(i, i + keyword.size()).equals(keyword)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Chot gia AI dua ve nac gan nhat cua o (bo phan x muc do): min / giua / max.
      * Gia van len xuong theo muc do hu hai that (nhe -> min, nang -> max), chi
      * khong cho chon so le giua cac nac nua. Khong khop o nao (bo phan la, muc
@@ -145,21 +219,15 @@ public class PriceTableService {
      */
     public long snapToAnchor(String partName, int severityLevel, long price) {
         if (partName == null || partName.isBlank() || price <= 0) return price;
-        String target = normalize(partName);
-        for (PriceRow row : rows()) {
-            if (row.severity() != severityLevel) continue;
-            if (!matchesPart(target, row.part())) continue;
-            long mid = (row.minVnd() + row.maxVnd()) / 2;
-            long[] anchors = {row.minVnd(), mid, row.maxVnd()};
-            long best = anchors[0];
-            long bestDist = Math.abs(price - best);
-            for (int i = 1; i < anchors.length; i++) {
-                long d = Math.abs(price - anchors[i]);
-                if (d < bestDist) { bestDist = d; best = anchors[i]; }
-            }
-            return best;
+        long[] anchors = anchorsFor(partName, severityLevel);
+        if (anchors == null) return price;
+        long best = anchors[0];
+        long bestDist = Math.abs(price - best);
+        for (int i = 1; i < anchors.length; i++) {
+            long d = Math.abs(price - anchors[i]);
+            if (d < bestDist) { bestDist = d; best = anchors[i]; }
         }
-        return price;
+        return best;
     }
 
     /** Ten bo phan trong bang co the gom nhieu phuong an cach nhau bang '/' (VD 'Can truoc / Can sau'). */

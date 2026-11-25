@@ -55,6 +55,12 @@ public class AssessmentController {
         return service.history();
     }
 
+    /** Xem chi tiet 1 ho so: day du vet hu hai, tong tien, ghi chu kiem chung. */
+    @GetMapping("/{id}")
+    public ClaimAssessment getClaim(@PathVariable String id) {
+        return service.getClaim(id);
+    }
+
     /**
      * Luu 1 ho so tham dinh da dinh gia vao Kho anh mau: moi vet hu hai thanh
      * 1 anh mau (anh khach gui + bo phan + muc do + gia uoc tinh + thong tin

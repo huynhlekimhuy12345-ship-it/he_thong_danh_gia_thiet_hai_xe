@@ -88,11 +88,17 @@ public class DatabaseService {
                     + "human_review_reason TEXT, "
                     + "assessment_summary TEXT, "
                     + "customer_note TEXT, "
+                    + "consensus_note TEXT, "
                     + "created_at TEXT NOT NULL)");
             // Migration: DB da tao tu ban truoc (chua co cot customer_note) thi them cot.
             // Cot da ton tai thi SQLite bao loi "duplicate column name" -> bo qua.
             try {
                 st.execute("ALTER TABLE claim_assessments ADD COLUMN customer_note TEXT");
+            } catch (Exception ignored) {
+            }
+            // Migration: luu ghi chu kiem chung 3 lan de mo lai ho so cu van thay duoc.
+            try {
+                st.execute("ALTER TABLE claim_assessments ADD COLUMN consensus_note TEXT");
             } catch (Exception ignored) {
             }
             st.execute("CREATE INDEX IF NOT EXISTS idx_claims_plate "

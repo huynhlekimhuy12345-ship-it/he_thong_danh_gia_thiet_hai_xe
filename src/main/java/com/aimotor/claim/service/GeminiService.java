@@ -115,9 +115,12 @@ public class GeminiService {
     }
 
     /**
-     * Hop nhat cac lan chay thanh 1 ket qua: lay cac lan OK, chon lan co tong o giua (trung vi),
-     * chot gia tung vet ve nac bang gia. Khong co lan OK nao -> lay trang thai nghiem ngat
-     * nhat (REJECTED > NEEDS_MORE_INFO) kem cac van de da gom.
+     * Hop nhat cac lan chay thanh 1 ket qua bang BO PHIEU THEO TUNG VET (khong lay
+     * nguyen 1 lan chay o giua nua): gop vet qua cac lan theo (bo phan chuan + ben),
+     * vet chi tinh tien khi co da so tuyet doi lan chay deu thay (>=2/3); muc do +
+     * nac gia lay theo da so; vet chi 1 lan thay thi loai + gan co kiem tra tay.
+     * Khong co lan OK nao -> lay trang thai nghiem ngat nhat (REJECTED >
+     * NEEDS_MORE_INFO) kem cac van de da gom.
      */
     private GeminiAssessmentResult mergeConsensus(List<GeminiAssessmentResult> runs) {
         List<GeminiAssessmentResult> okRuns = new ArrayList<>();
@@ -146,19 +149,78 @@ public class GeminiService {
             out.setConsensusNote("Đã chạy kiểm chứng " + runs.size() + "/3 lần ở nhiệt độ 0, không lần nào đủ điều kiện thẩm định.");
             return out;
         }
+        int n = okRuns.size();
+        int need = n / 2 + 1; // da so tuyet doi: 3 lan -> can 2, 2 lan -> can 2, 1 lan -> can 1
+        // Gop vet theo (bo phan chuan + ben): moi lan chay dong gop toi da 1 vet/nhom
+        // (cung nhom 2 vet thi giu vet co do ro cao hon).
+        Map<String, List<GeminiAssessmentResult.Damage>> groups = new LinkedHashMap<>();
+        for (GeminiAssessmentResult r : okRuns) {
+            if (r.getDamages() == null) continue;
+            Map<String, GeminiAssessmentResult.Damage> bestInRun = new LinkedHashMap<>();
+            for (GeminiAssessmentResult.Damage d : r.getDamages()) {
+                if (d == null || d.getPartName() == null || d.getPartName().isBlank()) continue;
+                String key = priceTableService.groupKey(d.getPartName());
+                GeminiAssessmentResult.Damage cur = bestInRun.get(key);
+                if (cur == null || d.getConfidenceScore() > cur.getConfidenceScore()) bestInRun.put(key, d);
+            }
+            for (Map.Entry<String, GeminiAssessmentResult.Damage> e : bestInRun.entrySet()) {
+                groups.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(e.getValue());
+            }
+        }
+        // Bo phieu tung nhom: muc do + nac gia lay theo da so; nhom thieu da so -> loai.
+        List<GeminiAssessmentResult.Damage> voted = new ArrayList<>();
+        List<String> dropped = new ArrayList<>();
+        long total = 0;
+        for (Map.Entry<String, List<GeminiAssessmentResult.Damage>> e : groups.entrySet()) {
+            List<GeminiAssessmentResult.Damage> g = e.getValue();
+            if (g.size() < need) {
+                dropped.add(g.get(0).getPartName() + " (chỉ " + g.size() + "/" + n + " lần thấy)");
+                continue;
+            }
+            // Muc do: trung vi thap (VD [2,3] -> 2, [1,2,3] -> 2).
+            List<Integer> sevs = new ArrayList<>();
+            for (GeminiAssessmentResult.Damage d : g) sevs.add(d.getSeverityLevel());
+            sevs.sort(Integer::compareTo);
+            int votedSev = sevs.get((sevs.size() - 1) / 2);
+            // Nac gia: moi vet lay chi so nac gan nhat theo muc do cua chinh no, roi bo phieu.
+            List<Integer> anchorIdxs = new ArrayList<>();
+            for (GeminiAssessmentResult.Damage d : g) {
+                int idx = nearestAnchorIndex(d.getPartName(), d.getSeverityLevel(), d.getEstimatedCostVnd());
+                if (idx >= 0) anchorIdxs.add(idx);
+            }
+            anchorIdxs.sort(Integer::compareTo);
+            int votedIdx = anchorIdxs.isEmpty() ? -1 : anchorIdxs.get((anchorIdxs.size() - 1) / 2);
+            // Vet dai dien: do ro cao nhat; do ro lay trung binh nhom.
+            GeminiAssessmentResult.Damage rep = g.get(0);
+            double confSum = 0;
+            for (GeminiAssessmentResult.Damage d : g) {
+                confSum += d.getConfidenceScore();
+                if (d.getConfidenceScore() > rep.getConfidenceScore()) rep = d;
+            }
+            long price;
+            String anchorNote = "";
+            long[] anchors = priceTableService.anchorsFor(rep.getPartName(), votedSev);
+            if (anchors != null && votedIdx >= 0) {
+                price = anchors[votedIdx];
+                anchorNote = " — Chốt nấc " + anchorName(votedIdx) + " theo đa số (" + g.size() + "/" + n + " lần chạy).";
+            } else {
+                price = rep.getEstimatedCostVnd();
+            }
+            GeminiAssessmentResult.Damage out = new GeminiAssessmentResult.Damage();
+            out.setPartName(rep.getPartName());
+            out.setObservedCondition(rep.getObservedCondition());
+            out.setMatchedReferenceId(rep.getMatchedReferenceId());
+            out.setReferenceComparisonNote((rep.getReferenceComparisonNote() == null ? "" : rep.getReferenceComparisonNote()) + anchorNote);
+            out.setSeverityLevel(votedSev);
+            out.setEstimatedCostVnd(price);
+            out.setConfidenceScore(confSum / g.size());
+            voted.add(out);
+            total += price;
+        }
         okRuns.sort(Comparator.comparingLong(GeminiAssessmentResult::getTotalCompensationVnd));
         GeminiAssessmentResult chosen = okRuns.get((okRuns.size() - 1) / 2);
         boolean weak = okRuns.size() < 3;
-        // Chot gia tung vet ve nac bang gia + tinh lai tong.
-        long total = 0;
-        List<GeminiAssessmentResult.Damage> damages = chosen.getDamages() == null
-                ? new ArrayList<>() : new ArrayList<>(chosen.getDamages());
-        for (GeminiAssessmentResult.Damage d : damages) {
-            long snapped = priceTableService.snapToAnchor(d.getPartName(), d.getSeverityLevel(), d.getEstimatedCostVnd());
-            d.setEstimatedCostVnd(snapped);
-            total += snapped;
-        }
-        chosen.setDamages(damages);
+        chosen.setDamages(voted);
         chosen.setTotalCompensationVnd(total);
         if (weak) {
             chosen.setRequiresHumanReview(true);
@@ -166,19 +228,42 @@ public class GeminiService {
             chosen.setHumanReviewReason(chosen.getHumanReviewReason() == null || chosen.getHumanReviewReason().isBlank()
                     ? reason : chosen.getHumanReviewReason() + " " + reason);
         }
+        if (!dropped.isEmpty()) {
+            chosen.setRequiresHumanReview(true);
+            String reason = "Đã loại " + dropped.size() + " vết chỉ xuất hiện ở thiểu số lần chạy (" + String.join("; ", dropped) + ") — cần giám định viên kiểm tra tay.";
+            chosen.setHumanReviewReason(chosen.getHumanReviewReason() == null || chosen.getHumanReviewReason().isBlank()
+                    ? reason : chosen.getHumanReviewReason() + " " + reason);
+        }
         List<Long> totals = new ArrayList<>();
         for (GeminiAssessmentResult r : okRuns) totals.add(r.getTotalCompensationVnd());
         totals.sort(Long::compareTo);
-        StringBuilder note = new StringBuilder("Đã chạy thẩm định 3 lần ở nhiệt độ 0");
-        if (okRuns.size() < 3) note.append(" (").append(okRuns.size()).append(" lần cho kết quả OK)");
-        note.append(", lấy kết quả giữa (tổng các lần OK: ");
+        StringBuilder note = new StringBuilder("Đã chạy thẩm định 3 lần ở nhiệt độ 0, bỏ phiếu theo từng vết (vết tính tiền khi ít nhất " + need + "/" + n + " lần đều thấy; mức độ + nấc giá lấy theo đa số; tổng các lần OK: ");
         for (int i = 0; i < totals.size(); i++) {
             if (i > 0) note.append(" / ");
             note.append(String.format("%,d", totals.get(i))).append(" đ");
         }
-        note.append("); giá từng vết đã chốt theo 3 nấc của bảng giá (min/giữa/max).");
+        note.append("; tổng chốt: ").append(String.format("%,d", total)).append(" đ (").append(voted.size()).append(" vết đồng thuận");
+        if (!dropped.isEmpty()) note.append(", ").append(dropped.size()).append(" vết đã loại");
+        note.append(").");
         chosen.setConsensusNote(note.toString());
         return chosen;
+    }
+
+    /** Chi so nac gan nhat (0=min, 1=giua, 2=max) cua gia theo o (bo phan x muc do); khong co o -> -1. */
+    private int nearestAnchorIndex(String partName, int severityLevel, long price) {
+        long[] anchors = priceTableService.anchorsFor(partName, severityLevel);
+        if (anchors == null || price <= 0) return -1;
+        int best = 0;
+        long bestDist = Math.abs(price - anchors[0]);
+        for (int i = 1; i < anchors.length; i++) {
+            long d = Math.abs(price - anchors[i]);
+            if (d < bestDist) { bestDist = d; best = i; }
+        }
+        return best;
+    }
+
+    private static String anchorName(int idx) {
+        return idx == 0 ? "min" : idx == 2 ? "max" : "giữa";
     }
 
     private static String statusOf(GeminiAssessmentResult r) {
@@ -471,6 +556,7 @@ public class GeminiService {
         sb.append("1) CHỐNG TRÙNG LẶP: khách chụp 1 xe từ nhiều góc; cùng 1 vết hư hại xuất hiện ở nhiều ảnh chỉ được tính bồi thường 1 LẦN DUY NHẤT. Gộp các ảnh cùng vết trước khi tính tiền.\n");
         sb.append("2) ĐỐI CHIẾU CHUẨN XÁC: với mỗi vết hư hại, so bộ phận + mức độ với từng ảnh mẫu, chọn matchedReferenceId có mức độ tương đương nhất, "
                 + "ghi rõ severityLevel của vết (1 = Xước nhẹ, 2 = Móp vừa, 3 = Vỡ/Biến dạng nặng) đúng với mức độ đã phán, "
+                + "tên bộ phận dùng đúng tên trong BẢNG GIÁ (Cản trước, Cản sau, Cánh cửa, Nắp capo, Nắp cốp, Đuôi xe, Tai xe, Đèn pha, Đèn hậu, Kính chắn gió, Gương chiếu hậu, Khung sườn, Động cơ), ghi rõ trái/phải/trước/sau trong tên để phân biệt các vết, "
                 + "giải thích ngắn gọn trong referenceComparisonNote. Nếu không có ảnh mẫu nào tương đương, để matchedReferenceId = null, "
                 + "ước lượng giá theo mô tả và đặt requiresHumanReview = true.\n");
         sb.append("3) CƠ CHẾ AN TOÀN: nếu xe hư hại quá nặng, nát khung gầm, túi khí bung nhiều, hoặc vượt ngoài phạm vi bộ ảnh mẫu, "

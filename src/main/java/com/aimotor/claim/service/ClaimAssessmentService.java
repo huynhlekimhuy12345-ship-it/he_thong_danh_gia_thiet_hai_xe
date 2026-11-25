@@ -247,6 +247,13 @@ public class ClaimAssessmentService {
         return repository.findAll();
     }
 
+    /** Lay 1 ho so day du de xem chi tiet: nhan ca id noi bo (UUID) lan ma ho so (CLM-...). */
+    public ClaimAssessment getClaim(String key) {
+        return repository.findById(key)
+                .or(() -> repository.findByClaimId(key))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hồ sơ thẩm định."));
+    }
+
     public List<ClaimAssessment> historyByPlate(String plate) {
         return repository.findByLicensePlateOrderByCreatedAtDesc(VehicleService.normalizePlate(plate));
     }
