@@ -115,12 +115,12 @@ public class GeminiService {
     }
 
     /**
-     * Hop nhat cac lan chay thanh 1 ket qua bang BO PHIEU THEO TUNG VET (khong lay
-     * nguyen 1 lan chay o giua nua): gop vet qua cac lan theo (bo phan chuan + ben),
-     * vet chi tinh tien khi co da so tuyet doi lan chay deu thay (>=2/3); muc do +
-     * nac gia lay theo da so; vet chi 1 lan thay thi loai + gan co kiem tra tay.
-     * Khong co lan OK nao -> lay trang thai nghiem ngat nhat (REJECTED >
-     * NEEDS_MORE_INFO) kem cac van de da gom.
+     * Hop nhat cac lan chay thanh 1 ket qua bang BO PHIEU THEO TUNG VET 2 TANG
+     * (khong lay nguyen 1 lan chay o giua nua, cung KHONG loai vet nao):
+     * gop vet qua cac lan theo (bo phan chuan + ben); nhom du da so -> muc do
+     * + nac gia theo da so; nhom thieu da so -> GIU LAI o nac min + gan co de
+     * giam dinh vien xac nhan. Khong co lan OK nao -> lay trang thai nghiem
+     * ngat nhat (REJECTED > NEEDS_MORE_INFO) kem cac van de da gom.
      */
     private GeminiAssessmentResult mergeConsensus(List<GeminiAssessmentResult> runs) {
         List<GeminiAssessmentResult> okRuns = new ArrayList<>();
@@ -167,16 +167,17 @@ public class GeminiService {
                 groups.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(e.getValue());
             }
         }
-        // Bo phieu tung nhom: muc do + nac gia lay theo da so; nhom thieu da so -> loai.
+        // Bo phieu tung nhom theo 2 tang: nhom du da so -> muc do + nac gia theo da so;
+        // nhom thieu da so (vet khong chac chan) -> GIU LAI (khong loai) nhung chi lay
+        // nac min + gan co de giam dinh vien xac nhan — khong vet nao bi mat khoi tong.
         List<GeminiAssessmentResult.Damage> voted = new ArrayList<>();
-        List<String> dropped = new ArrayList<>();
+        List<String> uncertain = new ArrayList<>();
+        int confidentCount = 0;
         long total = 0;
         for (Map.Entry<String, List<GeminiAssessmentResult.Damage>> e : groups.entrySet()) {
             List<GeminiAssessmentResult.Damage> g = e.getValue();
-            if (g.size() < need) {
-                dropped.add(g.get(0).getPartName() + " (chỉ " + g.size() + "/" + n + " lần thấy)");
-                continue;
-            }
+            boolean confident = g.size() >= need;
+            if (confident) confidentCount++;
             // Muc do: trung vi thap (VD [2,3] -> 2, [1,2,3] -> 2).
             List<Integer> sevs = new ArrayList<>();
             for (GeminiAssessmentResult.Damage d : g) sevs.add(d.getSeverityLevel());
@@ -200,11 +201,22 @@ public class GeminiService {
             long price;
             String anchorNote = "";
             long[] anchors = priceTableService.anchorsFor(rep.getPartName(), votedSev);
-            if (anchors != null && votedIdx >= 0) {
-                price = anchors[votedIdx];
-                anchorNote = " — Chốt nấc " + anchorName(votedIdx) + " theo đa số (" + g.size() + "/" + n + " lần chạy).";
+            if (confident) {
+                if (anchors != null && votedIdx >= 0) {
+                    price = anchors[votedIdx];
+                    anchorNote = " — Chốt nấc " + anchorName(votedIdx) + " theo đa số (" + g.size() + "/" + n + " lần chạy).";
+                } else {
+                    price = rep.getEstimatedCostVnd();
+                }
             } else {
-                price = rep.getEstimatedCostVnd();
+                uncertain.add(rep.getPartName() + " (chỉ " + g.size() + "/" + n + " lần thấy)");
+                if (anchors != null) {
+                    price = anchors[0];
+                    anchorNote = " — Chỉ xuất hiện ở " + g.size() + "/" + n + " lần chạy, giữ lại ở nấc min, cần giám định viên xác nhận.";
+                } else {
+                    price = rep.getEstimatedCostVnd();
+                    anchorNote = " — Chỉ xuất hiện ở " + g.size() + "/" + n + " lần chạy, cần giám định viên xác nhận.";
+                }
             }
             GeminiAssessmentResult.Damage out = new GeminiAssessmentResult.Damage();
             out.setPartName(rep.getPartName());
@@ -228,22 +240,22 @@ public class GeminiService {
             chosen.setHumanReviewReason(chosen.getHumanReviewReason() == null || chosen.getHumanReviewReason().isBlank()
                     ? reason : chosen.getHumanReviewReason() + " " + reason);
         }
-        if (!dropped.isEmpty()) {
+        if (!uncertain.isEmpty()) {
             chosen.setRequiresHumanReview(true);
-            String reason = "Đã loại " + dropped.size() + " vết chỉ xuất hiện ở thiểu số lần chạy (" + String.join("; ", dropped) + ") — cần giám định viên kiểm tra tay.";
+            String reason = "Có " + uncertain.size() + " vết chưa chắc chắn, chỉ xuất hiện ở thiểu số lần chạy (" + String.join("; ", uncertain) + ") — đã giữ lại ở nấc min, cần giám định viên xác nhận có phải thiệt hại thật không.";
             chosen.setHumanReviewReason(chosen.getHumanReviewReason() == null || chosen.getHumanReviewReason().isBlank()
                     ? reason : chosen.getHumanReviewReason() + " " + reason);
         }
         List<Long> totals = new ArrayList<>();
         for (GeminiAssessmentResult r : okRuns) totals.add(r.getTotalCompensationVnd());
         totals.sort(Long::compareTo);
-        StringBuilder note = new StringBuilder("Đã chạy thẩm định 3 lần ở nhiệt độ 0, bỏ phiếu theo từng vết (vết tính tiền khi ít nhất " + need + "/" + n + " lần đều thấy; mức độ + nấc giá lấy theo đa số; tổng các lần OK: ");
+        StringBuilder note = new StringBuilder("Đã chạy thẩm định 3 lần ở nhiệt độ 0, bỏ phiếu theo từng vết (vết đủ " + need + "/" + n + " lần thì giá theo đa số; vết chỉ thiểu số lần thấy vẫn giữ lại ở nấc min để giám định viên xác nhận; tổng các lần OK: ");
         for (int i = 0; i < totals.size(); i++) {
             if (i > 0) note.append(" / ");
             note.append(String.format("%,d", totals.get(i))).append(" đ");
         }
-        note.append("; tổng chốt: ").append(String.format("%,d", total)).append(" đ (").append(voted.size()).append(" vết đồng thuận");
-        if (!dropped.isEmpty()) note.append(", ").append(dropped.size()).append(" vết đã loại");
+        note.append("; tổng chốt: ").append(String.format("%,d", total)).append(" đ (").append(confidentCount).append(" vết đồng thuận");
+        if (!uncertain.isEmpty()) note.append(", ").append(uncertain.size()).append(" vết chưa chắc chắn giữ ở nấc min");
         note.append(").");
         chosen.setConsensusNote(note.toString());
         return chosen;

@@ -160,9 +160,10 @@ không trộn với nội dung đã xác minh.
   `application/json` theo `responseSchema` (không có markdown). Hợp nhất bằng
   bỏ phiếu theo từng vết (`mergeConsensus`): gộp vết theo bộ phận chuẩn + bên
   (`PriceTableService.groupKey` — "Cửa sau trái" và "Cánh cửa bên trái" về chung
-  1 nhóm); vết tính tiền khi ít nhất 2/3 lần đều thấy; mức độ + nấc giá
-  (min/giữa/max) lấy theo đa số, chốt lại bằng `snapToAnchor`; vết chỉ 1 lần
-  thấy thì loại + gắn cờ kiểm tra tay. Chỉ 1/3 lần OK thì chuyển giám định viên.
+  1 nhóm); vết đủ 2/3 lần thì mức độ + nấc giá (min/giữa/max) lấy theo đa số,
+  chốt lại bằng `snapToAnchor`; vết chỉ thiểu số lần thấy thì GIỮ LẠI ở nấc min
+  + gắn cờ để giám định viên xác nhận (không loại vết nào khỏi tổng). Chỉ 1/3 lần
+  OK thì chuyển giám định viên.
   Ghi chú kiểm chứng hiện ở kết quả (`consensusNote`).
   Nguồn: code: `GeminiService.java` (`assess` + `mergeConsensus`);
   `PriceTableService.java` (`groupKey`, `canonicalPart`, `anchorsFor`).

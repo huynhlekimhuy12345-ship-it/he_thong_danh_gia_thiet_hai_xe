@@ -24,11 +24,11 @@ Hệ thống thẩm định thiệt hại xe cơ giới tự động bằng AI �
         ↓
 5. Gọi Gemini 3 lần (cùng 1 bộ ảnh + prompt, nhiệt độ 0) gồm:
    [ảnh mẫu + nhãn] + [ảnh gốc của xe] + [ảnh khách] + system prompt
-   - Bỏ phiếu theo từng vết: vết chỉ tính tiền khi ít nhất 2/3 lần đều thấy (gộp theo
-     bộ phận chuẩn + bên trái/phải/trước/sau); mức độ + nấc giá (min/giữa/max) lấy theo
-     đa số; vết chỉ 1 lần thấy thì loại + gắn cờ kiểm tra tay. Giá vẫn lên xuống theo
-     mức độ hư hại thật, chỉ không chọn số lẻ giữa các nấc nữa; chỉ 1/3 lần OK thì
-     chuyển giám định viên
+   - Bỏ phiếu theo từng vết 2 tầng: vết đủ 2/3 lần thì mức độ + nấc giá (min/giữa/max)
+     lấy theo đa số; vết chỉ 1 lần thấy vẫn GIỮ LẠI (không loại) nhưng chỉ lấy nấc min
+     + gắn cờ để giám định viên xác nhận — không vết nào bị mất khỏi tổng. Giá vẫn lên
+     xuống theo mức độ hư hại thật, chỉ không chọn số lẻ giữa các nấc nữa; chỉ 1/3 lần
+     OK thì chuyển giám định viên
    - Cổng kiểm tra (validation gate): AI PHẢN BIỆN nếu ảnh mờ, không phải xe,
      thiếu góc, sai xe → trả NEEDS_MORE_INFO / REJECTED + liệt kê cần bổ sung
    - Chống trùng lặp: 1 vết ở nhiều góc chỉ tính tiền 1 lần

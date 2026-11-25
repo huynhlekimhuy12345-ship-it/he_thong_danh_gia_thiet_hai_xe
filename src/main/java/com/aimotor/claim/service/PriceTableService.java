@@ -240,9 +240,10 @@ public class PriceTableService {
         return false;
     }
 
-    /** Bo dau tieng Viet + chu thuong + chi giu chu cai/so/khoang trang (de so ten bo phan). */
+    /** Bo dau tieng Viet + chu thuong + chi giu chu cai/so/khoang trang (de so ten bo phan). Chu y: 'đ' khong tach duoc bang NFD nen phai doi thanh 'd' truoc (neu khong "Đèn pha" thanh "en pha" va khong khop tu khoa nao). */
     private static String normalize(String s) {
-        String n = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        String n = s.replace('đ', 'd').replace('Đ', 'd');
+        n = Normalizer.normalize(n, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         return n.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").replaceAll(" +", " ").trim();
     }
 
